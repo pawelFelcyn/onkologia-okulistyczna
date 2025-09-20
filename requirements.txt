@@ -1,0 +1,6 @@
+Pillow==10.4.0
+supervision==0.26.1
+numpy==1.26.4
+tqdm==4.67.1
+opencv-python==4.11.0.86
+albumentations==2.0.8
