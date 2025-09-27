@@ -4,6 +4,8 @@ import os
 import yolo_labels_utils
 import split_utils
 import augment as MyA
+import shutil
+from resize_images import batch_resize_images
 
 def get_arguments():
     parser = argparse.ArgumentParser()
@@ -18,14 +20,30 @@ def generate_masks(root_dir: str):
     yolo_labels_dir = os.path.join(root_dir, "labels")
     output_masks_dir = os.path.join(root_dir, "masks")
     yolo_labels_utils.generate_masks_from_labels(images_dir, yolo_labels_dir, output_masks_dir)
+    
+def prepare_images(root_dir: str, max_workers: int) -> None:
+    img_path = os.path.join(root_dir, "images")
+    img_original_path = os.path.join(root_dir, "images_original")
+    
+    if os.path.exists(img_original_path):
+        shutil.rmtree(img_original_path)
+    os.rename(img_path, img_original_path)
+    
+    batch_resize_images(img_original_path, img_path, max_workers)
+    
+def process_dataset(root_dir: str, dest: str) -> None:
+    split_utils.make_dataset(root_dir, dest)
+    traning_data_dir = os.path.join(dest, "splits", "train")
+    MyA.augment_training_data(traning_data_dir)
+
 
 def main():
     arguments = get_arguments()
+    # set max_workers according to your CPU
+    prepare_images(arguments.root_dir, 12)
     generate_masks(arguments.root_dir)
-    split_utils.make_dataset(arguments.root_dir, arguments.dest)
-    traning_data_dir = os.path.join(arguments.dest, "splits", "train")
-    MyA.augment_training_data(traning_data_dir)
-
+    process_dataset(arguments.root_dir, arguments.dest)
+  
 
 
 if __name__ == "__main__":
