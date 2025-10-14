@@ -3,7 +3,7 @@ import argparse
 import os
 import yolo_labels_utils
 import split_utils
-import augment as MyA
+#import augment as MyA
 import shutil
 from resize_images import batch_resize_images
 
@@ -37,11 +37,19 @@ def process_dataset(root_dir: str, dest: str) -> None:
     MyA.augment_training_data(traning_data_dir)
 
 
+def generate_labels_from_resized_masks(root_dir: str):
+    masks_dir = os.path.join(root_dir, "masks-resized")
+    images_dir = os.path.join(root_dir, "images")
+    output_labels_dir = os.path.join(root_dir, "labels_from_masks_resized")
+    yolo_labels_utils.generate_labels_from_masks(masks_dir, images_dir, output_labels_dir)
+
+
 def main():
     arguments = get_arguments()
     # set max_workers according to your CPU
     prepare_images(arguments.root_dir, 12)
     generate_masks(arguments.root_dir)
+    generate_labels_from_resized_masks(arguments.root_dir)
     process_dataset(arguments.root_dir, arguments.dest)
   
 
