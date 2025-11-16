@@ -1,4 +1,7 @@
 new_dataset/
+models/
+yolo_dataset/
+runs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
