@@ -1,32 +1,38 @@
-# YOLO Training Pipeline from CSV (Ophthalmic Scans)
+# YOLO Training & Testing Pipeline from CSV (Ophthalmic Scans)
 
-This project trains a YOLOv8 model using image--label pairs defined in
-CSV files.\
-Instead of copying files, the script creates **hardlinks**, which are
-stable on Windows and OneDrive.
+This project provides a complete pipeline for **training and testing
+YOLOv8** models using image--label pairs defined in CSV files.\
+The pipeline does **not copy files** --- instead, it creates
+**hardlinks**, which work reliably on Windows and OneDrive.
 
 ------------------------------------------------------------------------
 
 ## 🚀 Features
 
--   Builds YOLO dataset structure automatically:
+-   Automatically builds the YOLO dataset structure:
 
         yolo_dataset/
             images/train/
             images/val/
+            images/test/
             labels/train/
             labels/val/
+            labels/test/
 
--   Uses **hardlinks (os.link)** → zero extra disk usage.
+-   Uses **hardlinks (os.link)** → zero additional disk usage\
 
--   Reads CSVs containing:
+-   Reads CSVs with:
 
     -   `image_path`
     -   `label_path`
 
--   Trains YOLOv8 on the generated dataset.
+-   Trains YOLOv8 models from CSV-generated splits
 
--   Saves model weights with automatic unique filenames.
+-   Tests trained models on a CSV-defined test set
+
+-   Automatic unique filenames for saved model weights
+
+-   Supports overriding defaults using a `.env` file
 
 ------------------------------------------------------------------------
 
@@ -52,23 +58,57 @@ Example:
 
 ------------------------------------------------------------------------
 
+## 🌍 Environment Variable Overrides (`.env`)
+
+Both training and testing scripts load:
+
+    train_model/.env
+
+Environment variables:
+
+  ------------------------------------------------------------------------------------------------------------
+  Variable               Description                  Default
+  ---------------------- ---------------------------- --------------------------------------------------------
+  `SPLIT`                Path to folder containing    `Ophthalmic_Scans/splits/tumor_and_fluid_segmentation`
+                         `train.csv`, `val.csv`,      
+                         `test.csv`                   
+
+  `EPOCHS`               Number of training epochs    `50`
+
+  `BATCH`                Batch size                   `16`
+  ------------------------------------------------------------------------------------------------------------
+
+Example `.env`:
+
+    SPLIT=Ophthalmic_Scans/splits/custom_split
+    EPOCHS=100
+    BATCH=32
+
+------------------------------------------------------------------------
+
 ## 🏋️ Training
 
-Run:
+Run manual training:
 
 ``` bash
 python train_yolo.py     --train_csv Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct/train.csv     --val_csv Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct/val.csv     --epochs 50     --imgsz 1024     --batch 16
 ```
 
+Or rely entirely on `.env`:
+
+``` bash
+python train_yolo.py
+```
+
 ------------------------------------------------------------------------
 
-## 📁 Output
+## 📁 Output (Training)
 
-Weights are saved into:
+Weights are saved inside:
 
     models/weights.pt
 
-If file exists, script auto-generates:
+If this file exists, the script automatically saves:
 
     weights(1).pt
     weights(2).pt
@@ -76,19 +116,43 @@ If file exists, script auto-generates:
 
 ------------------------------------------------------------------------
 
+## 🧪 Testing a YOLO Model
+
+Use:
+
+``` bash
+python test_yolo.py     --test_csv Ophthalmic_Scans/splits/tumor_and_fluid_segmentation/test.csv     --model_to_test models/weights.pt
+```
+
+Or using `.env` defaults:
+
+``` bash
+python test_yolo.py
+```
+
+The script:
+
+1.  Builds a YOLO `test` split using hardlinks\
+2.  Runs `model.val(split="test")`\
+3.  Produces full YOLOv8 evaluation metrics
+
+------------------------------------------------------------------------
+
 ## 🛠️ Implementation Notes
 
 -   Hardlinks (`os.link`) ensure:
-    -   YOLO treats images as normal files.
-    -   No duplicated disk usage.
-    -   Full compatibility with Windows + OneDrive.
--   `os.path.lexists()` ensures broken links get removed before
-    recreating them.
+    -   No duplicated disk usage\
+    -   Full compatibility with Windows + OneDrive\
+    -   YOLO treats the files as normal images\
+-   `os.path.lexists()` ensures broken links are cleaned before use
+-   Both training and testing support silent default override through
+    `.env`
 
 ------------------------------------------------------------------------
 
 ## ✔️ Summary
 
-This script provides a **fully automated YOLO training pipeline** based
-on CSV-defined datasets, optimized for Windows environments, avoiding
-broken symlink issues by using hardlinks.
+This repository offers a **complete YOLO training & testing workflow**
+based on CSV-defined datasets.\
+Hardlinks keep disk usage to a minimum, while `.env` overrides make the
+pipeline customizable and easy to automate.
