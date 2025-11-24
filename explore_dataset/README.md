@@ -1,27 +1,30 @@
-# Dataset Explorer
+# Electron dataset explorer
 
-A simple interactive tool to explore OCT images and their segmentation masks.
+This simple app enables you to quickly explore the raw dataset.
 
-## Features
-- Browse through train/val/test splits
-- Toggle fluid (blue) and tumor (red) mask overlays
-- View image metadata (patient ID, date, labels)
-- Navigate images with prev/next buttons
+## Requirements
 
-## Usage
+-   **Node.js** (recommended 18+)
+-   **npm**
 
-Run with default dataset path:
-```bash
-python explorer.py
+Check Node version:
+
+``` bash
+node -v
 ```
 
-Or specify a custom dataset path:
-```bash
-python explorer.py --path "path/to/your/dataset"
+## Installation
+
+Install dependencies:
+
+``` bash
+npm install
 ```
 
-## Controls
-- Use "Next ▶" and "◀ Prev" buttons to navigate through images
-- Toggle overlays using checkboxes
-- Switch between splits using Train/Val/Test buttons
-- Image metadata is displayed on the right side
+## Running the Application (Development Mode)
+
+``` bash
+npm start
+```
+
+The Electron window will launch.
