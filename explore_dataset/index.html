@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+  <heda>
+    <link rel="stylesheet" href="style.css">
+  </heda>
+  <body>
+    <div class="wrap-panel">
+      <div>
+        <input list="patients" id="patientInput" placeholder="Patient id..." >
+        <datalist id="patients"></datalist>
+      </div>
+      <div>
+        <input list="sessions" id="sessionInput" placeholder="Session..."/>
+        <datalist id="sessions"></datalist>
+      </div>
+      <div>
+        <input list="imageTypes" id="imageTypeInput" placeholder="Image type..."/>
+        <datalist id="imageTypes"></datalist>
+      </div>
+      <div>
+        <input list="areas" id="areaInput" placeholder="Area..."/>
+        <datalist id="areas"></datalist>
+      </div>
+      <div>
+        <input list="lateralities" id="lateralityInput" placeholder="Laterality..."/>
+        <datalist id="lateralities"></datalist>
+      </div>
+      <div>
+        <button id="loadButton">Load</button>
+      </div>
+      <button id="prev">Prev</button>
+      <button id="next">Next</button>
+    </div>
+    <br/>
+    <div class="grid2x2">
+      <div class="cell">
+        <p class="m-10">
+          Resized image:
+        </p>
+        <img id="resizedImage" class="m-10"/>
+      </div>
+      <div class="cell">
+        <p class="m-10">
+          Mask image:
+        </p>
+        <img id="mask" class="m-10"/>
+      </div>
+      <div class="cell">
+        <p class="m-10">
+          Original image:
+        </p>
+        <img id="image" class="m-10"/>
+      </div>
+          <div class="cell">
+          <form id="imageInfoForm" class="info-form">
+              <label>Patient ID:
+                  <input type="text" id="patient_id" readonly>
+              </label>
+            
+              <label>Image ID:
+                  <input type="text" id="image_id" readonly>
+              </label>
+            
+              <label>Diagnosis:
+                  <input type="text" id="diagnosis" readonly>
+              </label>
+            
+              <label>Date:
+                  <input type="text" id="date" readonly>
+              </label>
+            
+              <label>Area:
+                  <input type="text" id="area" readonly>
+              </label>
+            
+              <label>Reference Eye:
+                  <input type="text" id="reference_eye" readonly>
+              </label>
+            
+              <label>Image Type:
+                  <input type="text" id="image_type" readonly>
+              </label>
+            
+              <label>Laterality:
+                  <input type="text" id="laterality" readonly>
+              </label>
+          </form>
+    </div>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>
