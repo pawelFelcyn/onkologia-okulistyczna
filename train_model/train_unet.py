@@ -1,37 +1,34 @@
-import argparse
+import unet_utils
 import os
-from ultralytics import YOLO
-from utils import make_yolo_split, get_unique_path
+from torch.utils.data import DataLoader
+from utils import get_unique_path
 from dotenv import load_dotenv
+import argparse
 
 load_dotenv(dotenv_path='train_model/.env')
 
 def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=640, batch=16):
-    make_yolo_split(train_csv, "train")
-    make_yolo_split(val_csv, "val")
+    root_dir = os.path.join("Ophthalmic_Scans")
+    train_dataset = unet_utils.UNetDataset(train_csv, root_dir)
+    val_dataset = unet_utils.UNetDataset(val_csv, root_dir)
 
-    model = YOLO("base_models/yolov8n-seg.pt")
-    model.train(
-        data="data.yaml",
-        epochs=epochs,
-        imgsz=imgsz,
-        batch=batch,
-        name="exp_from_csv",
-    )
+    train_loader = DataLoader(train_dataset, batch_size=batch, shuffle=True)
+    val_loader   = DataLoader(val_dataset,   batch_size=batch, shuffle=False)
+    model = unet_utils.UNet(3, 2)
+    model.train_model(train_loader, val_loader, epochs)
 
-    default_dir = "models/yolo"
+    default_dir = "models/unet"
     os.makedirs(default_dir, exist_ok=True)
 
     if save_path is None:
-        save_path = os.path.join(default_dir, "weights.pt")
+        save_path = os.path.join(default_dir, "weights.pth")
 
     save_path = get_unique_path(save_path)
     model.save(save_path)
     print(f"\n✅ Saved model in: {save_path}")
-
-
+    
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train YOLO model from CSV splits with explicit labels.")
+    parser = argparse.ArgumentParser(description="Train UNET model from CSV splits with explicit labels.")
     
     default_split = os.getenv('SPLIT', 'Ophthalmic_Scans/splits/tumor_and_fluid_segmentation')
     default_epochs = int(os.getenv('EPOCHS', '50'))

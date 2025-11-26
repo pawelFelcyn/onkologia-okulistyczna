@@ -2,6 +2,7 @@ new_dataset/
 models/
 yolo_dataset/
 runs/
+runs_unet/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
