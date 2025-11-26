@@ -9,3 +9,5 @@ opencv-python==4.11.0.86
 matplotlib==3.8.0
 ultralytics==8.3.225
 python-dotenv==1.2.1
+torchvision==0.24.0
+torch==2.9.0

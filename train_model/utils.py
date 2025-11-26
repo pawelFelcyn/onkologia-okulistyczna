@@ -26,3 +26,13 @@ def make_yolo_split(csv_path, split_name):
         if os.path.lexists(lbl_dst):
             os.remove(lbl_dst)
         os.link(lbl_src, lbl_dst)
+        
+def get_unique_path(base_path):
+    """Returns a unique path if the file already exists."""
+    if not os.path.exists(base_path):
+        return base_path
+    root, ext = os.path.splitext(base_path)
+    i = 1
+    while os.path.exists(f"{root}({i}){ext}"):
+        i += 1
+    return f"{root}({i}){ext}"
