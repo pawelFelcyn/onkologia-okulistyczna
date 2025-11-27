@@ -9,6 +9,51 @@ from PIL import Image
 import numpy as np
 import json
 from tqdm import tqdm
+from torchmetrics import ConfusionMatrix
+
+def metrics_from_confusion_matrix(cm):
+    tn, fp = cm[0]
+    fn, tp = cm[1]
+
+    # Avoid division by zero
+    eps = 1e-7
+
+    accuracy = (tp + tn) / (tp + tn + fp + fn + eps)
+    precision = tp / (tp + fp + eps)
+    recall = tp / (tp + fn + eps)
+    specificity = tn / (tn + fp + eps)
+    f1 = 2 * tp / (2 * tp + fp + fn + eps)
+    dice = f1
+    iou = tp / (tp + fp + fn + eps)
+
+    return {
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "specificity": specificity,
+        "f1": f1,
+        "dice": dice,
+        "iou": iou
+    }
+
+def get_confucion_matrcies(masks: torch.Tensor, preds: torch.Tensor):
+    #first channel is for fluid, second for tumor
+    preds_fluid = preds[:, 0, :, :]
+    preds_tumor = preds[:, 1, :, :]
+    masks_fluid = masks[:, 0, :, :]
+    masks_tumor = masks[:, 1, :, :]
+    
+    cm = ConfusionMatrix(task="binary", num_classes=2)
+    fluid_cm = cm(preds_fluid, masks_fluid)
+    tumor_cm = cm(preds_tumor, masks_tumor)
+    return np.array(fluid_cm), np.array(tumor_cm)
+
+def get_metrics(masks: torch.Tensor, preds: torch.Tensor):
+    fluid_cm, tumor_cm = get_confucion_matrcies(masks, preds)
+    fluid_metrics = metrics_from_confusion_matrix(fluid_cm)
+    tumor_metrics = metrics_from_confusion_matrix(tumor_cm)
+    return fluid_metrics, fluid_cm, tumor_metrics, tumor_cm
+    
 
 class UNetDataset(Dataset):
     def __init__(self, csv_path, root_dir="", transforms=None):
@@ -37,8 +82,10 @@ class UNetDataset(Dataset):
         
         mask_np = np.array(mask, dtype=np.int64)
         tolerance = 10
+        #chan0 is for fluid
         chan0 = np.zeros_like(mask_np, dtype=np.float32)
         chan0[(mask_np >= 127 - tolerance) & (mask_np <= 127 + tolerance)] = 1.0
+        #chan1 is for tumor
         chan1 = np.zeros_like(mask_np, dtype=np.float32)
         chan1[mask_np >= 255 - tolerance] = 1.0
         mask_tensor = np.stack([chan0, chan1], axis=0)
@@ -207,6 +254,69 @@ class UNet(nn.Module):
                 print("✓ saved best_unet.pth")
 
         print("\nFinished training. Best val loss:", best_val_loss)
+    
+    def __get_test_run_dir(self):
+        base_dir = "runs_unet"
+        prefix = "test_run"
+        os.makedirs(base_dir, exist_ok=True)
+        i = 1
+        while True:
+            candidate = os.path.join(base_dir, f"{prefix}{i}")
+            if not os.path.exists(candidate):
+                return candidate
+            i += 1
+            
+    def __cn_to_dict(self, cn):
+        return {
+            "TP": int(cn[1][1]),
+            "TN": int(cn[0][0]),
+            "FP": int(cn[0][1]),
+            "FN": int(cn[1][0])
+        }
+    
+    def test_model(self, test_loader, device=None):
+        if device is None:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        test_results_dir = self.__get_test_run_dir()
+        os.makedirs(test_results_dir, exist_ok=True)
         
+        self.to(device)
+
+        self.eval()
+        fluid_cm = None
+        tumor_cm = None
+        with torch.no_grad():
+            for imgs, masks in tqdm(test_loader, desc=f"Testing: ", leave=False):
+                imgs = imgs.to(device)
+                masks = masks.to(device)
+                preds = self(imgs)
+                preds = torch.sigmoid(preds)
+                preds = (preds > 0.5).float()
+                fluid_cm_local, tumor_cm_local = get_confucion_matrcies(masks, preds)
+                if fluid_cm is None:
+                    fluid_cm = fluid_cm_local
+                else:
+                    fluid_cm += fluid_cm_local
+                if tumor_cm is None:
+                    tumor_cm = tumor_cm_local
+                else:
+                    tumor_cm += tumor_cm_local
+                    
+        fluid_metrics = metrics_from_confusion_matrix(fluid_cm)
+        tumor_metrics = metrics_from_confusion_matrix(tumor_cm)
+        
+        with open(os.path.join(test_results_dir, "fluid_metrics.json"), "w") as f:
+            json.dump(fluid_metrics, f)
+        with open(os.path.join(test_results_dir, "tumor_metrics.json"), "w") as f:
+            json.dump(tumor_metrics, f)
+            
+        with open(os.path.join(test_results_dir, "fluid_cm.json"), "w") as f:
+            json.dump(self.__cn_to_dict(fluid_cm), f)
+        with open(os.path.join(test_results_dir, "tumor_cm.json"), "w") as f:
+            json.dump(self.__cn_to_dict(tumor_cm), f)
+        
+        return fluid_metrics, fluid_cm, tumor_metrics, tumor_cm
+            
     def save(self, path):
         torch.save(self.state_dict(), path)
