@@ -1,0 +1,15 @@
+<View>
+<Image name="image" value="$image" zoom="true" rotate="true" />
+<BrushLabels name="label" toName="image" opacity="0.6" perRegion="true">
+<Label value="Fluid" background="#1E90FF" />
+<Label value="Tumor" background="#FF4500" />
+</BrushLabels>
+<TextArea name="patient_id" toName="image" rows="1" placeholder="Patient id" />
+<TextArea name="image_id" toName="image" rows="1" placeholder="Image id" />
+<TextArea name="diagnosis" toName="image" rows="1" placeholder="Diagnosis" />
+<TextArea name="date" toName="image" rows="1" placeholder="Date" />
+<TextArea name="area" toName="image" rows="1" placeholder="Area" />
+<TextArea name="reference_eye" toName="image" rows="1" placeholder="Reference eye" />
+<TextArea name="image_type" toName="image" rows="1" placeholder="Image type" />
+<TextArea name="laterality" toName="image" rows="1" placeholder="Laterality" />
+</View>
