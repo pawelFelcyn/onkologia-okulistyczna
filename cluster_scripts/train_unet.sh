@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=train_unet_model
 #SBATCH --partition=gpu_spot
-#SBATCH --array=1-4
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --time=08:00:00

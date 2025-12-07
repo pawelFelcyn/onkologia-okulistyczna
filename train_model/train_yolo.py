@@ -33,7 +33,7 @@ def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train YOLO model from CSV splits with explicit labels.")
     
-    default_split = os.getenv('SPLIT', 'Ophthalmic_Scans/splits/tumor_and_fluid_segmentation')
+    default_split = os.getenv('SPLIT', 'Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct')
     default_epochs = int(os.getenv('EPOCHS', '50'))
     default_batch = int(os.getenv('BATCH', '16'))
     
