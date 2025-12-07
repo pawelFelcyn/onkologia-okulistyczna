@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=train_unet_model
-#SBATCH --partition=gpu
-#SBATCH --cpus-per-task=1
-#SBATCH --time=00:10:00
-#SBATCH --output=zadanie-%j.out
-#SBATCH --mail-type=ALL
-#SBATCH --mail-user=pawfel1@st.amu.edu.pl
 
-module load anaconda
-conda activate nn_train
-cd /projects/onkokul/onkologia-okulistyczna || exit -1
+if [ -z "$1" ]; then
+    echo "Usage: $0 <email_address>"
+    exit 1
+fi
 
-srun python train_model/train_unet.py
+EMAIL="$1"
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+sbatch --mail-user="$EMAIL" "$SCRIPT_DIR/train_unet.sbatch"
