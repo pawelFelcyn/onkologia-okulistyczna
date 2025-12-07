@@ -22,7 +22,7 @@ def main(split: str, model_to_test: str, batch: int) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test YOLO model from CSV splits with explicit labels.")
     
-    default_split = os.getenv('SPLIT', 'Ophthalmic_Scans/splits/tumor_and_fluid_segmentation')
+    default_split = os.getenv('SPLIT', 'Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct')
     
     parser.add_argument(
         "--split",
