@@ -3,7 +3,7 @@ param(
 )
 
 if (-not $Email) {
-    $envFile = ".env"
+    $envFile = Join-Path (Split-Path $MyInvocation.MyCommand.Path) ".env"
 
     if (-not (Test-Path $envFile)) {
         Write-Error ".env file not found and no email parameter provided."
@@ -27,4 +27,4 @@ $remoteHost = "access.cluster.wmi.amu.edu.pl"
 $remoteDir = "/projects/onkokul/onkologia-okulistyczna/cluster_scripts"
 $remoteScript = "train_unet.sh"
 
-ssh $remoteHost "cd $remoteDir && ./$remoteScript $Email"
+ssh $remoteHost "cd $remoteDir && sbatch $remoteScript --mail-user=""$Email"""
