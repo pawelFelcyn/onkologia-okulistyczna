@@ -40,7 +40,7 @@ def generate_tasks(base_path: Path, url_prefix: str, output_json: Path):
 
                         task = {
                             "image": f"{url_prefix}/{image_rel_path}",
-                            "file_name": img_file.name,
+                            "filename": img_file.name,
                             "patient_id": meta.get("patient_id"),
                             "image_id": meta.get("image_id"),
                             "diagnosis": meta.get("diagnosis"),

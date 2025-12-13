@@ -4,12 +4,14 @@
 <Label value="Fluid" background="#1E90FF" />
 <Label value="Tumor" background="#FF4500" />
 </BrushLabels>
-<TextArea name="patient_id" toName="image" rows="1" placeholder="Patient id" />
-<TextArea name="image_id" toName="image" rows="1" placeholder="Image id" />
-<TextArea name="diagnosis" toName="image" rows="1" placeholder="Diagnosis" />
-<TextArea name="date" toName="image" rows="1" placeholder="Date" />
-<TextArea name="area" toName="image" rows="1" placeholder="Area" />
-<TextArea name="reference_eye" toName="image" rows="1" placeholder="Reference eye" />
-<TextArea name="image_type" toName="image" rows="1" placeholder="Image type" />
-<TextArea name="laterality" toName="image" rows="1" placeholder="Laterality" />
+<Text name="patient_id_text" value="Patient ID: $patient_id"/>
+<Text name="image_id_text" value="Image ID: $image_id"/>
+<Text name="filename_text" value="Filename: $filename"/>
+<Text name="diagnosis_text" value="Diagnosis: $diagnosis"/>
+<Text name="date_text" value="Date: $date"/>
+<Text name="area_text" value="Area: $area"/>
+<Text name="reference_eye_text" value="Reference eye: $reference_eye"/>
+<Text name="image_type_text" value="Image type: $image_type"/>
+<Text name="laterality_text" value="Laterality: $laterality"/>
 </View>
+ 
