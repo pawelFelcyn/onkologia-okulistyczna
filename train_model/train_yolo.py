@@ -19,8 +19,10 @@ def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16, con
     make_yolo_split(val_csv, "val")
     print(f"Last run will be used to continue training from epoch {continue_from_epoch}." if default_continue_from_epoch else "Training will start from base model.")
     actual_epochs = epochs if continue_from_epoch is None else epochs - (continue_from_epoch - 1)
-    
-    model = YOLO("base_models/yolov8n-seg.pt")
+    print(f"Training for {actual_epochs} epochs left.")
+    model_name = YOLO(get_model_path(continue_from_epoch is not None))
+    print("Actual base model for training:", model_name)
+    model = YOLO(model_name)
     model.train(
         data="data.yaml",
         epochs=actual_epochs,
