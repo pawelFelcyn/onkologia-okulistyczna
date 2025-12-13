@@ -19,7 +19,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test YOLO model from CSV splits with explicit labels.")
     
     default_split = os.getenv('SPLIT', 'Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct')
-    
+    default_test_model = os.getenv('TEST_MODEL', 'models/weights.pt')
     parser.add_argument(
         "--test_csv",
         type=str,
@@ -27,7 +27,7 @@ if __name__ == "__main__":
         help="Path to test.csv",
     )
     
-    parser.add_argument("--model_to_test", type=str, default="models/weights.pt", help="Model that should be tested")
+    parser.add_argument("--model_to_test", type=str, default=default_test_model, help="Model that should be tested")
     
     args = parser.parse_args()
     
