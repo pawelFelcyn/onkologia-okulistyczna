@@ -3,7 +3,7 @@
 #SBATCH --partition=gpu_spot
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
-#SBATCH --time=08:00:00
+#SBATCH --time=00:30:00
 #SBATCH --output=yolo_train_task-%j.out
 #SBATCH --mail-type=ALL
 #SBATCH --mem=16G
