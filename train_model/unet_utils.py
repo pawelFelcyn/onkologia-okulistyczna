@@ -37,16 +37,16 @@ def metrics_from_confusion_matrix(cm):
     }
 
 def get_confucion_matrcies(masks: torch.Tensor, preds: torch.Tensor):
-    #first channel is for fluid, second for tumor
+    device = masks.device
     preds_fluid = preds[:, 0, :, :]
     preds_tumor = preds[:, 1, :, :]
     masks_fluid = masks[:, 0, :, :]
     masks_tumor = masks[:, 1, :, :]
-    
-    cm = ConfusionMatrix(task="binary", num_classes=2)
+
+    cm = ConfusionMatrix(task="binary", num_classes=2).to(device)
     fluid_cm = cm(preds_fluid, masks_fluid)
     tumor_cm = cm(preds_tumor, masks_tumor)
-    return np.array(fluid_cm), np.array(tumor_cm)
+    return np.array(fluid_cm.cpu()), np.array(tumor_cm.cpu())
 
 def get_metrics(masks: torch.Tensor, preds: torch.Tensor):
     fluid_cm, tumor_cm = get_confucion_matrcies(masks, preds)
