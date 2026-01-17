@@ -7,8 +7,59 @@ from tqdm import tqdm
 TUMOR_LABEL = 1
 FLUID_LABEL = 0
 
+TUMOR = 'tumor'
+FLUID = 'fluid'
+
 FLUID_MASK_COLOR_GRAYSCALE = 127
 TUMOR_MASK_COLOR_GRAYSCALE = 255
+
+def yolo2mask_searate_outputs(yolo_label_path: str, tumor_output_mask_path: str, fluid_output_mask_path: str, width: int, height: int, override: bool = False):
+    """
+    Converts YOLO polygon annotations into a grayscale segmentation masks.
+    
+    Parameters:
+        yolo_label_path (str): Path to the YOLO label file (.txt) containing polygon annotations.
+        tumor_output_mask_path (str): Path where the generated tumor mask image will be saved.
+        fluid_output_mask_path (str): Path where the generated fluid mask image will be saved.
+        override (bool, optional): If True, overwrites the output mask if it already exists. Defaults to False.
+    """
+    if (os.path.exists(tumor_output_mask_path) or os.path.exists(tumor_output_mask_path)) and not override:
+        raise Exception("Output mask already exists. Set override=True to override")
+    with open(yolo_label_path, 'r') as f:
+        lines = f.readlines()
+    
+    partial_masks: list[np.ndarray] = []
+    labels: list[int] = []
+    for _, polygon in enumerate(lines):
+        polygon = polygon.split(' ')
+        label = int(polygon[0])
+        labels.append(label)
+        polygon = list(map(float, polygon[1:-2]))
+        p = []
+        for i in range(0, len(polygon) - 1, 2):
+            p.append([int(polygon[i] * width), int(polygon[i + 1] * height)])
+        mask = sv.polygon_to_mask(np.array(p), (width, height))
+        partial_masks.append(mask)
+    
+    tumor_final_mask = np.zeros((height, width), dtype=np.uint8)
+    fluid_final_mask = np.zeros((height, width), dtype=np.uint8)
+    for i in range(len(partial_masks)):
+        kind = TUMOR if labels[i] == TUMOR_LABEL else FLUID
+        for y in range(height):
+            for x in range(width):
+                if partial_masks[i][y][x] and tumor_final_mask[y][x] == 0 and kind == TUMOR:
+                    tumor_final_mask[y][x] = 255
+                elif partial_masks[i][y][x] and fluid_final_mask[y][x] == 0 and kind == FLUID:
+                    fluid_final_mask[y][x] = 255
+    
+    tumor_mask_image = Image.fromarray(tumor_final_mask)
+    fluid_mask_image = Image.fromarray(fluid_final_mask)
+    tumor_dirname = os.path.dirname(tumor_output_mask_path)
+    fluid_dirname = os.path.dirname(fluid_output_mask_path)
+    os.makedirs(tumor_dirname, exist_ok=True)
+    os.makedirs(fluid_dirname, exist_ok=True)
+    tumor_mask_image.save(tumor_output_mask_path)
+    fluid_mask_image.save(fluid_output_mask_path)
 
 def yolo2mask(image_path: str, yolo_label_path: str, output_mask_path: str, override: bool = False):
     """
