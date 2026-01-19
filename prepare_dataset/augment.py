@@ -8,6 +8,22 @@ import albumentations as A
 COMBOS = ['nothing', 'fluid_only', 'tumor_only', 'both']
 TARGET_PER_COMBO = 1250
 
+def augment_image(resized_image_path, fluid_mask_path, tumor_mask_path):
+    transform = _make_transform({
+        'mask1': 'mask',
+        'mask2': 'mask',
+    })
+    image = cv2.imread(resized_image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    fluid_mask = cv2.imread(fluid_mask_path, cv2.IMREAD_GRAYSCALE)
+    tumor_mask = cv2.imread(tumor_mask_path, cv2.IMREAD_GRAYSCALE)
+
+    augmented = transform(image=image, mask1=fluid_mask, mask2=tumor_mask)
+    augmented_image = augmented['image']
+    augmented_fluid_mask = augmented['mask1']
+    augmented_tumor_mask = augmented['mask2']
+    return augmented_image, augmented_fluid_mask, augmented_tumor_mask
+
 def _normalize_bool(v):
     if pd.isna(v):
         return False
@@ -80,14 +96,14 @@ def _make_augmentation_plan(train_data_dir: str):
                            'augmentations': [int(plan[_id]) for _id in df['id'].tolist()]})
     return out_df, summary
 
-def _make_transform():
+def _make_transform(additional_targets = None):
     return A.Compose([
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.RandomRotate90(p=0.5),
         A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1,
-                           rotate_limit=20, border_mode=cv2.BORDER_CONSTANT, value=0, p=0.7)
-    ])
+                           rotate_limit=20, border_mode=cv2.BORDER_CONSTANT, value=0, p=0.7),
+    ], additional_targets=additional_targets)
 
 def augment_training_data(train_data_dir: str):
     """

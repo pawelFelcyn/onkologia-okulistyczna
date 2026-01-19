@@ -3,6 +3,7 @@ models/
 yolo_dataset/
 runs/
 runs_unet/
+old_images/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
