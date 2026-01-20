@@ -1,12 +1,13 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, ZoomIn } from 'lucide-react';
 
 interface ImageGridProps {
     images: string[];
     onRemove: (index: number) => void;
+    onImageClick?: (src: string) => void;
 }
 
-export const ImageGrid: React.FC<ImageGridProps> = ({ images, onRemove }) => {
+export const ImageGrid: React.FC<ImageGridProps> = ({ images, onRemove, onImageClick }) => {
     if (images.length === 0) return null;
 
     return (
@@ -14,7 +15,12 @@ export const ImageGrid: React.FC<ImageGridProps> = ({ images, onRemove }) => {
             {images.map((src, index) => (
                 <div
                     key={index}
-                    className="group relative aspect-square bg-black rounded-xl overflow-hidden shadow-sm border border-medical-200 hover:shadow-md transition-all duration-300"
+                    onClick={() => onImageClick && onImageClick(src)}
+                    className={`
+            group relative aspect-square bg-black rounded-xl overflow-hidden shadow-sm border border-medical-200 
+            transition-all duration-300
+            ${onImageClick ? 'cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-accent' : ''}
+          `}
                 >
                     <img
                         src={src}
@@ -22,14 +28,16 @@ export const ImageGrid: React.FC<ImageGridProps> = ({ images, onRemove }) => {
                         className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
                     />
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-                        <span className="text-white text-xs font-medium">Scan {index + 1}</span>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                        <ZoomIn className="text-white" size={24} />
                     </div>
 
                     <button
-                        onClick={() => onRemove(index)}
-                        className="absolute top-2 right-2 p-1.5 bg-white/20 backdrop-blur-sm hover:bg-red-500/80 rounded-full text-white opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-[-10px] group-hover:translate-y-0"
-                        aria-label="Remove image"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onRemove(index);
+                        }}
+                        className="absolute top-2 right-2 p-1.5 bg-white/20 backdrop-blur-sm hover:bg-red-500/80 rounded-full text-white opacity-0 group-hover:opacity-100 transition-all z-10"
                     >
                         <X size={14} />
                     </button>
