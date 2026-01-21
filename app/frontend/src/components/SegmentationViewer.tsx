@@ -1,17 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Eye, EyeOff, Layers } from 'lucide-react';
+import type { Detection } from '../types/inference';
 
 interface SegmentationViewerProps {
     imageUrl: string;
+    detections: Detection[];
     onClose: () => void;
     // In a real app, you would pass the specific AI result data here
     // e.g., predictions: { x: number, y: number, w: number, h: number }[]
 }
 
-export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({ imageUrl, onClose }) => {
+export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({ imageUrl, detections, onClose }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [showOverlay, setShowOverlay] = useState(true);
     const [imageLoaded, setImageLoaded] = useState(false);
+    const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -36,8 +39,8 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({ imageUrl
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
             // 3. Draw AI Segmentation (Simulated)
-            if (showOverlay) {
-                drawSegmentation(ctx, canvas.width, canvas.height);
+            if (showOverlay && detections.length > 0) {
+                drawSegmentation(ctx, canvas.width, canvas.height, scale);
             }
 
             setImageLoaded(true);
@@ -45,35 +48,74 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({ imageUrl
     }, [imageUrl, showOverlay]);
 
     // --- SIMULATION OF AI OUTPUT ---
-    const drawSegmentation = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
-        // STYLE: U-Net (Mask) style - semi-transparent fill
-        // We use a red/orange tint common in medical heatmaps
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.4)'; // Tailwind red-500 with opacity
-        ctx.strokeStyle = '#ef4444';
-        ctx.lineWidth = 2;
+    const drawSegmentation = (ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number, scale: number) => {
+        detections.forEach((detection) => {
+            if (detection.segments && detection.segments.length > 0) {
+                
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.4)'; 
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 2;
 
-        ctx.beginPath();
+                ctx.beginPath();
+
+                const firstPoint = detection.segments[0];
+                ctx.moveTo(
+                    firstPoint[0] * canvasWidth,
+                    firstPoint[1] * canvasHeight
+                );
+
+                for (let i = 0; i< detection.segments.length; i++) {
+                    const point = detection.segments[i];
+                    ctx.lineTo(
+                        point[0] * canvasWidth,
+                        point[1] * canvasHeight
+                    );
+                }
+
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            const [x1, y1, x2, y2] = detection.box;
+            const boxX = x1 * scale;
+            const boxY = y1 * scale;
+            const boxWidth = (x2 - x1) * scale;
+            const boxHeight = (y2 - y1) * scale;
+
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+
+            ctx.fillStyle = '#ef4444';
+            ctx.font = 'bold 14px Inter, sans-serif';
+            ctx.fillText(
+                `${detection.class} (${(detection.conf * 100).toFixed(1)}%)`,
+                boxX + 10,
+                boxY - 10
+            );
+        });
 
         // Simulating a tumor shape (In reality, this comes from your backend mask coordinates)
         // We draw an irregular blob in the center
-        const cx = w / 2;
-        const cy = h / 2;
+        // const cx = w / 2;
+        // const cy = h / 2;
 
-        ctx.moveTo(cx - 50, cy - 20);
-        ctx.bezierCurveTo(cx - 50, cy - 80, cx + 60, cy - 80, cx + 60, cy - 20);
-        ctx.bezierCurveTo(cx + 100, cy, cx + 60, cy + 80, cx, cy + 80);
-        ctx.bezierCurveTo(cx - 60, cy + 80, cx - 80, cy, cx - 50, cy - 20);
+        // ctx.moveTo(cx - 50, cy - 20);
+        // ctx.bezierCurveTo(cx - 50, cy - 80, cx + 60, cy - 80, cx + 60, cy - 20);
+        // ctx.bezierCurveTo(cx + 100, cy, cx + 60, cy + 80, cx, cy + 80);
+        // ctx.bezierCurveTo(cx - 60, cy + 80, cx - 80, cy, cx - 50, cy - 20);
 
-        ctx.fill(); // For U-Net (Segmentation)
-        ctx.stroke(); // For boundary definition
+        // ctx.fill(); // For U-Net (Segmentation)
+        // ctx.stroke(); // For boundary definition
 
-        // STYLE: YOLO (Bounding Box) style - optional
-        // ctx.strokeRect(cx - 60, cy - 80, 140, 170);
+        // // STYLE: YOLO (Bounding Box) style - optional
+        // // ctx.strokeRect(cx - 60, cy - 80, 140, 170);
 
-        // Label
-        ctx.fillStyle = '#ef4444';
-        ctx.font = 'bold 14px Inter, sans-serif';
-        ctx.fillText("Tumor (0.98)", cx + 70, cy - 60);
+        // // Label
+        // ctx.fillStyle = '#ef4444';
+        // ctx.font = 'bold 14px Inter, sans-serif';
+        // ctx.fillText("Tumor (0.98)", cx + 70, cy - 60);
     };
 
     return (
@@ -85,6 +127,9 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({ imageUrl
                     <div>
                         <h2 className="text-lg font-semibold">Segmentation Viewer</h2>
                         <p className="text-xs text-medical-200 opacity-70">AI Model: Retina-U-Net-V2</p>
+                        <p className="text-xs text-medical-200 opacity-70">
+                            Detections: {detections.length}
+                        </p>
                     </div>
                 </div>
 
@@ -120,15 +165,33 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({ imageUrl
                     Analysis Results
                 </h4>
 
-                <div className="grid grid-cols-[80px_1fr] gap-y-2 text-sm">
-                    {/* Row 1 */}
-                    <span className="text-medical-200">Area:</span>
-                    <span className="font-mono text-white text-right">12.4 mm²</span>
-
-                    {/* Row 2 */}
-                    <span className="text-medical-200">Confidence:</span>
-                    <span className="font-mono text-white text-right">98.2%</span>
-                </div>
+             {detections.length > 0 ? (
+                    <div className="space-y-4">
+                        {detections.map((det, idx) => (
+                            <div key={idx} className="bg-white/5 p-3 rounded-lg border border-white/10">
+                                <div className="font-semibold text-accent capitalize mb-2">
+                                    {det.class} #{idx + 1}
+                                </div>
+                                <div className="grid grid-cols-[100px_1fr] gap-y-1 text-xs">
+                                    <span className="text-medical-200">Confidence:</span>
+                                    <span className="font-mono text-white text-right">
+                                        {(det.conf * 100).toFixed(1)}%
+                                    </span>
+                                    <span className="text-medical-200">Bounding Box:</span>
+                                    <span className="font-mono text-white text-right text-[10px]">
+                                        [{det.box[0].toFixed(0)}, {det.box[1].toFixed(0)}]
+                                    </span>
+                                    <span className="text-medical-200">Polygons:</span>
+                                    <span className="font-mono text-white text-right">
+                                        {det.segments.length} pts
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-medical-200 text-sm text-center">No detections</p>
+                )}
             </div>
         </div>
     );
