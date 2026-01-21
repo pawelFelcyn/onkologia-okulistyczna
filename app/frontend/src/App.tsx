@@ -5,14 +5,15 @@ import { ImageGrid } from './components/ImageGrid';
 import { ActionButton } from './components/ActionButton';
 import { SummaryPanel } from './components/SummaryPanel'; // Ensure this is imported
 import { SegmentationViewer } from './components/SegmentationViewer';
+import type { Detection } from './types/inference';
 
 function App() {
     const [images, setImages] = useState<string[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
     const [hasResults, setHasResults] = useState(false);
     const [volume, setVolume] = useState(0);
-
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [detections, setDetections] = useState<Detection[]>([]);
 
     const handleFilesSelected = (fileList: FileList | null) => {
         if (fileList) {
@@ -23,16 +24,46 @@ function App() {
         }
     };
 
-    const handleMarkTumors = () => {
+    const handleMarkTumors = async () => {
         if (images.length === 0) return;
         setIsProcessing(true);
+        const formData = new FormData();
+        try {
+            const responseWithBlob = await fetch(images[0]);
+            const blob = await responseWithBlob.blob();
+            formData.append('file', blob)
+            const response = await fetch('http://localhost:8000/inference', {
+                method: 'POST',
+                body: formData,    
+            });
+             
+            if (!response.ok) {
+                throw new Error('Something went wrong during processing.');
+            }
 
-        // Simulate API call
-        setTimeout(() => {
-            setIsProcessing(false);
+            const data = await response.json();
+            console.log(data);
+            setVolume(data.volume);
+            setDetections(data.detections);
             setHasResults(true);
-            setVolume(12.45); // 2. Set a mock volume result
-        }, 2000);
+        
+        } catch (error) {
+            console.error("API call failed:", error);
+        } finally {
+            setIsProcessing(false);
+        }
+
+       
+
+  
+
+
+        // // Simulate API call
+        // setTimeout(() => {
+        //     setIsProcessing(false);
+        //     setHasResults(true);
+        //     setVolume(12.45); // 2. Set a mock volume result
+        // }, 2000);
     };
 
     const handleRemoveImage = (indexToRemove: number) => {
@@ -48,6 +79,7 @@ function App() {
             {selectedImage && (
                 <SegmentationViewer
                     imageUrl={selectedImage}
+                    detections={detections}
                     onClose={() => setSelectedImage(null)}
                 />
             )}
