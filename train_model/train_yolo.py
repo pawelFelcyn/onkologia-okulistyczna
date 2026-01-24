@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv(dotenv_path='train_model/.env')
 
-def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=640, batch=16):
+def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16):
     make_yolo_split(train_csv, "train")
     make_yolo_split(val_csv, "val")
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--save_path", type=str, default=None, help="Opctional model save path")
     parser.add_argument("--epochs", type=int, default=default_epochs)
-    parser.add_argument("--imgsz", type=int, default=1024)
+    parser.add_argument("--imgsz", type=int, default=512)
     parser.add_argument("--batch", type=int, default=default_batch)
 
     args = parser.parse_args()

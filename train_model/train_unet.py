@@ -7,7 +7,7 @@ import argparse
 
 load_dotenv(dotenv_path='train_model/.env')
 
-def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=640, batch=16):
+def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16):
     root_dir = os.path.join("Ophthalmic_Scans")
     train_dataset = unet_utils.UNetDataset(train_csv, root_dir)
     val_dataset = unet_utils.UNetDataset(val_csv, root_dir)
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--save_path", type=str, default=None, help="Opctional model save path")
     parser.add_argument("--epochs", type=int, default=default_epochs)
-    parser.add_argument("--imgsz", type=int, default=1024)
+    parser.add_argument("--imgsz", type=int, default=512)
     parser.add_argument("--batch", type=int, default=default_batch)
 
     args = parser.parse_args()
