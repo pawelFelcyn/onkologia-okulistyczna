@@ -194,7 +194,7 @@ function App() {
               {selectedForVolume.size < 3 && images.length > 0 && (
                 <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-sm text-amber-800">
-                    📋 Select at least <strong>3 images</strong> for volume
+                    Select at least <strong>3 images</strong> for volume
                     calculation
                   </p>
                   <p className="text-xs text-amber-700 mt-1">
