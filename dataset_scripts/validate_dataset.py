@@ -20,9 +20,6 @@ def validate_split_file(path: str, split_kind: str):
         label_path = os.path.join('Ophthalmic_Scans', row["label_path"])
         tumor_mask_path = os.path.join('Ophthalmic_Scans', row["tumor_mask_path"])
         fluid_mask_path = os.path.join('Ophthalmic_Scans', row["fluid_mask_path"])
-        #for now dont validate augmented images
-        if 'augmented' in image_path:
-            continue
         if not os.path.isfile(image_path):
             error_flag = True
             print(f"⛔  Error: Image not found at '{image_path}' in {split_kind} split.")

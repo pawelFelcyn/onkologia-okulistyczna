@@ -69,27 +69,23 @@ class UNetDataset(Dataset):
         row = self.data.iloc[idx]
 
         img_path  = os.path.join(self.root_dir, row["image_path"])
-        mask_path = os.path.join(self.root_dir, row["mask_path"])
+        tumor_mask_path = os.path.join(self.root_dir, row["tumor_mask_path"])
+        fluid_mask_path = os.path.join(self.root_dir, row["fluid_mask_path"])
 
         img = Image.open(img_path).convert("RGB")
 
-        mask = Image.open(mask_path).convert("L")
+        tumor_mask = Image.open(tumor_mask_path).convert("L")
+        fluid_mask = Image.open(fluid_mask_path).convert("L")
 
         if self.transforms:
             img = self.transforms(img)
 
         img_tensor = self.to_tensor(img)
         
-        mask_np = np.array(mask, dtype=np.int64)
-        tolerance = 10
-        #chan0 is for fluid
-        chan0 = np.zeros_like(mask_np, dtype=np.float32)
-        chan0[(mask_np >= 127 - tolerance) & (mask_np <= 127 + tolerance)] = 1.0
-        #chan1 is for tumor
-        chan1 = np.zeros_like(mask_np, dtype=np.float32)
-        chan1[mask_np >= 255 - tolerance] = 1.0
-        mask_tensor = np.stack([chan0, chan1], axis=0)
-        mask_tensor = torch.from_numpy(mask_tensor)
+        tumor_mask_np = np.array(tumor_mask, dtype=np.int64)
+        fluid_mask_np = np.array(fluid_mask, dtype=np.int64)
+       
+        mask_tensor = torch.from_numpy(np.stack([fluid_mask_np, tumor_mask_np], axis=0))
 
         return img_tensor, mask_tensor
 
