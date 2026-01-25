@@ -60,14 +60,9 @@ function App() {
   const handleRemoveSelected = () => {
     const indicesToRemove = Array.from(selectedForVolume).sort((a, b) => b - a);
     setImages((prev) =>
-      prev.filter((_, index) => !indicesToRemove.includes(index))
+      prev.filter((_, index) => !indicesToRemove.includes(index)),
     );
-    
-    // Rebuild selection indices after removal
-    const newSelection = new Set<number>();
-    const removedSet = new Set(indicesToRemove);
-    let offset = 0;
-    
+
     selectedForVolume.forEach((idx) => {
       let newIdx = idx;
       for (let removed of indicesToRemove) {
@@ -76,7 +71,7 @@ function App() {
         }
       }
     });
-    
+
     setSelectedForVolume(new Set());
     if (images.length <= indicesToRemove.length) {
       setHasResults(false);
@@ -215,7 +210,7 @@ function App() {
                   />
                   {hasResults && (
                     <div className="mt-2 text-center text-sm text-accent font-medium animate-pulse">
-                      Click any image to view detailed segmentation
+                      Click Analyze on any image to view detailed segmentation
                     </div>
                   )}
                 </div>

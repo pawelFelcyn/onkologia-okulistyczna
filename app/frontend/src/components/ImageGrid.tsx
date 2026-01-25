@@ -32,8 +32,12 @@ export const ImageGrid: React.FC<ImageGridProps> = ({
                             border-2 transition-all duration-300 cursor-pointer
                             ${
                               isSelected
-                                ? "border-purple-400 ring-2 ring-black/60 shadow-lg"
-                                : "border-medical-200 hover:ring-2 hover:ring-accent/40"
+                                ? "border-[#7C3AED] ring-1 ring-[#38BDF8] shadow-lg"
+                                : // "border-purple-400 ring-2 ring-black/60 shadow-lg"
+                                  // "border-purple-400 ring-2 ring-black/60 shadow-lg"
+
+                                  // "border-[#38BDF8] ring-2 ring-[#22D3EE] shadow-lg"
+                                  "border-medical-200 hover:ring-2 hover:ring-accent/40"
                             }
                         `}
           >
