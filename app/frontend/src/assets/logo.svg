@@ -1,0 +1,74 @@
+<svg
+  width="160"
+  height="36"
+  viewBox="0 0 160 36"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <defs>
+    <!-- Gradient for Eye text -->
+    <linearGradient id="textGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7C3AED" />
+      <stop offset="50%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#22D3EE" />
+    </linearGradient>
+
+    <!-- Gradient for eye icon -->
+    <linearGradient id="eyeGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+  </defs>
+
+  <!-- Eye icon -->
+  <g transform="translate(0, 6)">
+    <ellipse
+      cx="18"
+      cy="12"
+      rx="15"
+      ry="9"
+      stroke="url(#eyeGradient)"
+      stroke-width="2"
+      fill="none"
+    />
+    <circle
+      cx="18"
+      cy="12"
+      r="5"
+      fill="url(#eyeGradient)"
+    />
+    <circle
+      cx="18"
+      cy="12"
+      r="2"
+      fill="#020925"
+    />
+  </g>
+
+  <!-- Text: A -->
+  <text
+    x="44"
+    y="25"
+    fill="white"
+    fill-opacity="0.95"
+    font-size="20"
+    font-weight="600"
+    font-family="Inter, system-ui, sans-serif"
+    letter-spacing="-0.5"
+  >
+    A
+  </text>
+
+  <!-- Text: Eye -->
+  <text
+    x="58"
+    y="25"
+    fill="url(#textGradient)"
+    font-size="20"
+    font-weight="700"
+    font-family="Inter, system-ui, sans-serif"
+    letter-spacing="-0.5"
+  >
+    Eye
+  </text>
+</svg>
