@@ -1,23 +1,12 @@
 import React from "react";
 import { Eye, Settings, User } from "lucide-react";
+import AEyeLogo from "../assets/AEye.svg";
 
 export const Topbar: React.FC = () => {
   return (
-    // <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-medical-200 h-16 flex items-center px-6 lg:px-12 justify-between transition-all duration-300">
     <header className="fixed top-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-md border-b border-medical-200 h-16 flex items-center px-6 lg:px-12 justify-between transition-all duration-300">
       <div className="flex items-center gap-3 group cursor-pointer">
-        {/* <div className="p-2 bg-medical-900 text-white rounded-lg group-hover:bg-accent transition-colors duration-300">
-          <Eye size={20} strokeWidth={2.5} />
-        </div> */}
-        <img
-          src="/logo.png"
-          alt="AEye Logo"
-          className="h-10 w-auto object-contain hover:opacity-80 transition-opacity duration-300"
-        ></img>
-
-        <span className="font-semibold text-lg tracking-tight text-medical-100">
-          AEye
-        </span>
+        <img src={AEyeLogo} alt="AEye logo" className="h-9 w-auto" />
       </div>
 
       <div className="flex items-center gap-4">

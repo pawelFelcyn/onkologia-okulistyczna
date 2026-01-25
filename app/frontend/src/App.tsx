@@ -57,6 +57,33 @@ function App() {
     }
   };
 
+  const handleRemoveSelected = () => {
+    const indicesToRemove = Array.from(selectedForVolume).sort((a, b) => b - a);
+    setImages((prev) =>
+      prev.filter((_, index) => !indicesToRemove.includes(index))
+    );
+    
+    // Rebuild selection indices after removal
+    const newSelection = new Set<number>();
+    const removedSet = new Set(indicesToRemove);
+    let offset = 0;
+    
+    selectedForVolume.forEach((idx) => {
+      let newIdx = idx;
+      for (let removed of indicesToRemove) {
+        if (removed < idx) {
+          newIdx--;
+        }
+      }
+    });
+    
+    setSelectedForVolume(new Set());
+    if (images.length <= indicesToRemove.length) {
+      setHasResults(false);
+      setVolume(0);
+    }
+  };
+
   const handleMarkTumors = async () => {
     // Volume API: requires minimum 3 images selected
     if (selectedForVolume.size < 3) {
@@ -165,6 +192,14 @@ function App() {
                         ? "Deselect All"
                         : "Select All"}
                     </button>
+                    <button
+                      onClick={handleRemoveSelected}
+                      disabled={selectedForVolume.size === 0}
+                      className="px-2 py-1 rounded bg-red-100 hover:bg-red-200 text-red-600 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Remove Selected
+                    </button>
+
                     <div>
                       <h1></h1>
                     </div>
