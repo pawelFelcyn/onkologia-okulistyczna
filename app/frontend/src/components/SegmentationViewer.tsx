@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { X, Eye, EyeOff, Layers, Loader } from "lucide-react";
+import { X, Eye, EyeOff, Loader, ChevronRight } from "lucide-react";
 import type { Detection } from "../types/inference";
+import AEyeLogo from "../assets/logo.svg";
 
 interface SegmentationViewerProps {
   imageUrl: string;
@@ -12,6 +13,8 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
   onClose,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sliderRef = useRef<HTMLDivElement>(null);
+
   const [showOverlay, setShowOverlay] = useState(true);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isLoadingYOLO, setIsLoadingYOLO] = useState(true);
@@ -20,9 +23,7 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
   const [viewMode, setViewMode] = useState<"comparison" | "analysis">(
     "comparison",
   );
-  const sliderRef = useRef<HTMLDivElement>(null);
 
-  // Fetch YOLO segmentation when component mounts
   useEffect(() => {
     const fetchYOLOSegmentation = async () => {
       setIsLoadingYOLO(true);
@@ -37,50 +38,38 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
           body: formData,
         });
 
-        if (!yoloResponse.ok) {
-          throw new Error("YOLO segmentation failed");
-        }
-
         const data = await yoloResponse.json();
         setDetections(data.detections || []);
       } catch (error) {
-        console.error("YOLO API call failed:", error);
+        console.error("API Error:", error);
         setDetections([]);
       } finally {
         setIsLoadingYOLO(false);
       }
     };
-
     fetchYOLOSegmentation();
   }, [imageUrl]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const img = new Image();
     img.src = imageUrl;
     img.onload = () => {
-      // Setup Canvas Dimensions
-      const maxWidth = window.innerWidth * 0.7; // 0.8
-      const maxHeight = window.innerHeight * 0.75; // 0.8
+      const maxWidth = window.innerWidth * 0.6;
+      const maxHeight = window.innerHeight * 0.75;
       const scale = Math.min(maxWidth / img.width, maxHeight / img.height);
 
       canvas.width = img.width * scale;
       canvas.height = img.height * scale;
 
-      // Draw composite based on view mode
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Draw full image as base
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      // Determine how to draw based on view mode
       if (viewMode === "comparison") {
-        // Comparison Mode: Slider with clip region
         if (showOverlay && detections.length > 0 && sliderPosition > 0) {
           ctx.save();
           const sliderX = (sliderPosition / 100) * canvas.width;
@@ -90,43 +79,33 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           drawSegmentation(ctx, canvas.width, canvas.height, scale);
           ctx.restore();
-        } else if (!showOverlay && detections.length > 0) {
-          drawSegmentation(ctx, canvas.width, canvas.height, scale);
         }
       } else {
-        // Analysis Mode: Toggle between full image and image with segmentation
         if (showOverlay && detections.length > 0) {
           drawSegmentation(ctx, canvas.width, canvas.height, scale);
         }
       }
-
       setImageLoaded(true);
     };
 
-    // Handle mouse move for slider
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMove = (e: MouseEvent) => {
       if (!sliderRef.current || e.buttons === 0) return;
-
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
-      const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-      setSliderPosition(percentage);
+      setSliderPosition(Math.max(0, Math.min(100, (x / rect.width) * 100)));
     };
 
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!sliderRef.current) return;
+    const handleTouch = (e: TouchEvent) => {
       const rect = canvas.getBoundingClientRect();
       const x = e.touches[0].clientX - rect.left;
-      const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-      setSliderPosition(percentage);
+      setSliderPosition(Math.max(0, Math.min(100, (x / rect.width) * 100)));
     };
 
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("touchmove", handleTouchMove);
-
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("touchmove", handleTouch);
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("touchmove", handleTouch);
     };
   }, [imageUrl, showOverlay, sliderPosition, detections, viewMode]);
 
@@ -184,193 +163,228 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-medical-900/95 backdrop-blur-sm flex items-center justify-center animate-fade-in">
-      {/* Toolbar */}
-      <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center text-white">
-        <div className="flex items-center gap-3">
-          <Layers className="text-accent" />
-          <div>
-            <h2 className="text-lg font-semibold">Segmentation Viewer</h2>
-            <p className="text-xs text-medical-200 opacity-70">
-              AI Model: Fine tuned YOLOv8
-            </p>
-            <p className="text-xs text-medical-200 opacity-70">
-              Detections: {detections.length}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 bg-white/10 rounded-full px-4 py-2 backdrop-blur-md border border-white/10">
-          {isLoadingYOLO && (
-            <div className="flex items-center gap-2 text-sm font-medium text-accent">
-              <Loader size={16} className="animate-spin" />
-              AI Segmenting...
+    <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex overflow-hidden font-sans text-white">
+      <div className="flex-1 flex flex-col relative">
+        <header className="p-6 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="flex shrink-0 items-center justify-center p-1.5 bg-white/5 rounded-xl border border-white/10 shadow-sm backdrop-blur-sm">
+              <img src={AEyeLogo} alt="AEye logo" className="h-9 w-auto" />
             </div>
-          )}
-          {!isLoadingYOLO && (
-            <>
-              {/* View Mode Switcher */}
-              <div className="flex items-center gap-1 bg-white/10 rounded-lg p-1 border border-white/20">
-                <button
-                  onClick={() => setViewMode("comparison")}
-                  className={
-                    viewMode === "comparison"
-                      ? "px-3 py-1 rounded text-xs font-medium transition-all bg-accent text-medical-900 shadow-md"
-                      : "px-3 py-1 rounded text-xs font-medium transition-all text-medical-200 hover:text-white"
-                  }
-                  title="Compare original and segmented scans side-by-side"
-                >
-                  Compare
-                </button>
-                <button
-                  onClick={() => setViewMode("analysis")}
-                  className={
-                    viewMode === "analysis"
-                      ? "px-3 py-1 rounded text-xs font-medium transition-all bg-accent text-medical-900 shadow-md"
-                      : "px-3 py-1 rounded text-xs font-medium transition-all text-medical-200 hover:text-white"
-                  }
-                  title="Analyze segmentation with mask toggle"
-                >
-                  Analyze
-                </button>
-              </div>
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">
+                AI Segmentation
+              </h2>
+              <p className="text-xs text-white/40 uppercase tracking-widest font-mono">
+                Yolov8
+              </p>
+            </div>
+          </div>
 
-              {/* Mask Toggle - Only in Analysis Mode */}
-              {viewMode === "analysis" && (
+          <div className="flex items-center gap-4 bg-white/5 border border-white/10 p-1.5 rounded-2xl">
+            <div className="flex bg-black/40 p-1 rounded-xl">
+              <button
+                onClick={() => setViewMode("comparison")}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === "comparison" ? "bg-white text-black shadow-lg" : "text-white/50 hover:text-white"}`}
+              >
+                Compare
+              </button>
+              <button
+                onClick={() => setViewMode("analysis")}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === "analysis" ? "bg-white text-black shadow-lg" : "text-white/50 hover:text-white"}`}
+              >
+                Analysis
+              </button>
+            </div>
+
+            {viewMode === "analysis" && (
+              <div className="ml-4">
                 <button
                   onClick={() => setShowOverlay(!showOverlay)}
-                  className="flex items-center gap-2 text-sm font-medium hover:text-accent transition-colors"
-                  title={
-                    showOverlay
-                      ? "Hide segmentation mask"
-                      : "Show segmentation mask"
-                  }
+                  className={`flex items-center gap-2 px-4 py-1.5
+                     rounded-xl text-xs font-bold transition-all border ${
+                       showOverlay
+                         ? `
+                            text-white
+                            border-accent/50
+                            bg-gradient-to-r
+                            from-accent-dark
+                            via-accent
+                            to-accent-light
+                            shadow-[0_0_14px_rgba(56,189,248,0.45)]
+                          `
+                         : `
+                            border-white/10
+                            text-white/50
+                            hover:text-white
+                            hover:border-white/30
+                          `
+                     }`}
                 >
-                  {showOverlay ? <Eye size={18} /> : <EyeOff size={18} />}
-                  {showOverlay ? "Hide Mask" : "Show Mask"}
+                  {showOverlay ? <Eye size={16} /> : <EyeOff size={16} />}
+                  {showOverlay ? "Mask ON" : "Mask OFF"}
                 </button>
+              </div>
+            )}
+          </div>
+        </header>
+        <main className="flex-1 flex items-center justify-center p-8 relative">
+          <div className="relative rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.8)] border border-white/10 group bg-black">
+            {!imageLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/50">
+                <Loader className="animate-spin text-accent" size={40} />
+              </div>
+            )}
+
+            <canvas ref={canvasRef} className="block cursor-crosshair" />
+
+            {viewMode === "comparison" &&
+              !isLoadingYOLO &&
+              detections.length > 0 && (
+                <div
+                  ref={sliderRef}
+                  className="absolute inset-0 cursor-col-resize"
+                >
+                  <div
+                    className="
+                              absolute top-0 bottom-0 w-[2px]
+                              bg-white
+                              transition-[background,box-shadow]
+
+
+                              group-hover:bg-gradient-to-b
+                              group-hover:from-accent-dark
+                              group-hover:via-accent
+                              group-hover:to-accent-light
+
+                              shadow-[0_0_15px_rgba(255,255,255,0.4)]
+                              group-hover:shadow-[0_0_18px_rgba(56,189,248,0.6)]
+                            "
+                    style={{ left: `${sliderPosition}%` }}
+                  >
+                    <div
+                      className="
+                            absolute top-1/2 left-1/2
+                            -translate-x-1/2 -translate-y-1/2
+
+                            bg-white text-black
+                            rounded-full p-2
+                            shadow-2xl border border-black/20
+
+                            transition-transform
+                            group-hover:scale-110
+                            group-hover:bg-gradient-to-br
+                            group-hover:from-accent-dark
+                            group-hover:via-accent
+                            group-hover:to-accent-light
+                            group-hover:text-white
+                          "
+                    >
+                      <ChevronRight size={18} className="rotate-0" />
+                    </div>
+                  </div>
+                  <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter border border-white/10">
+                    Original
+                  </div>
+                  <div
+                    className="
+                              absolute top-4 right-4
+                              px-3 py-1 rounded-full
+                              text-[10px] font-bold uppercase tracking-tight
+
+                              bg-black/30 backdrop-blur-md
+                              border border-white/10
+
+                              bg-gradient-to-r from-accent-dark via-accent to-accent-light
+                              bg-clip-text text-transparent
+  "
+                  >
+                    Segmented
+                  </div>
+                </div>
               )}
-            </>
+          </div>
+        </main>
+      </div>
+      <aside className="w-[350px] border-l border-white/10 bg-white/[0.07] backdrop-blur-xl flex flex-col">
+        <div className="p-8 border-b border-white/10">
+          <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-white/40 mb-1">
+            Inference Results
+          </h3>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-black">{detections.length}</span>
+            <span className="text-sm text-white/60">Objects detected</span>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+          {isLoadingYOLO ? (
+            <div className="flex flex-col items-center justify-center h-40 opacity-40">
+              <Loader className="animate-spin mb-4" />
+              <p className="text-sm font-medium">Processing scan...</p>
+            </div>
+          ) : detections.length > 0 ? (
+            detections.map((det, i) => (
+              <div
+                key={i}
+                className="bg-white/5 border border-white/5 rounded-2xl p-4 hover:bg-white/10 transition-all group/card hover:border-accent/30"
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <span
+                    className="
+                              text-[10px] font-bold uppercase tracking-widest
+                              px-2 py-1 rounded-md
+                              text-white
+                              bg-gradient-to-r
+                              from-accent-dark
+                              via-accent
+                              to-accent-light
+                              shadow-[0_0_10px_rgba(56,189,248,0.35)]
+                          "
+                  >
+                    {det.class}
+                  </span>
+                  <span className="font-mono text-xs text-white/40 group-hover/card:text-white transition-colors">
+                    {(det.conf * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className="
+                                  h-full
+                                  bg-gradient-to-r
+                                  from-accent-dark
+                                  via-accent
+                                  to-accent-light
+                                  shadow-[0_0_12px_rgba(56,189,248,0.45)]
+                                  transition-[width] duration-1000 ease-out
+                                "
+                      style={{ width: `${det.conf * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-white/30 font-mono">
+                    REGION: [{det.box.map((b) => Math.round(b)).join(", ")}]
+                  </p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-20 opacity-30 text-sm italic">
+              No clinical anomalies found
+            </div>
           )}
         </div>
 
-        <button
-          onClick={onClose}
-          className="p-2 bg-white/10 hover:bg-red-500/80 rounded-full transition-colors"
-        >
-          <X size={24} />
-        </button>
-      </div>
-
-      {/* Canvas with Slider */}
-      <div className="relative rounded-lg overflow-hidden shadow-2xl border border-white/40">
-        {!imageLoaded || isLoadingYOLO ? (
-          <div className="absolute inset-0 flex items-center justify-center text-white bg-black/50 z-10">
-            <div className="text-center">
-              <Loader
-                size={40}
-                className="animate-spin mx-auto mb-3 text-accent"
-              />
-              <p>AI Segmenting...</p>
-            </div>
-          </div>
-        ) : null}
-        <canvas ref={canvasRef} className="block bg-black cursor-col-resize" />
-        {/* Before/After Slider - Only in Comparison Mode */}
-        {detections.length > 0 &&
-          !isLoadingYOLO &&
-          viewMode === "comparison" && (
-            <div
-              ref={sliderRef}
-              className="absolute inset-0 cursor-col-resize group"
-              onMouseDown={() => {}}
-              onTouchStart={() => {}}
-            >
-              <div
-                className="absolute top-0 bottom-0 w-[2px]
-                                bg-white/70 hover:bg-white
-                                transition-colors"
-                style={{ left: `${sliderPosition}%` }}
-              >
-                {/* <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-accent text-medical-900 rounded-full p-2 shadow-lg"> */}
-                <div
-                  className="
-                            absolute top-1/2 left-1/2
-                            -translate-x-1/2 -translate-y-1/2
-                            bg-black/20 hover:bg-black/90
-                            rounded-full p-2
-                            shadow-lg
-                            ring-2 ring-white/70
-                            "
-                >
-                  <svg
-                    className="w-3 h-3 text-medical-900"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M15.75 5.75L12 2l-3.75 3.75M12 22v-5M8.25 18.25L12 22l3.75-3.75" />
-                  </svg>
-                </div>
-              </div>
-              {/* Before label */}
-              <div className="absolute top-4 left-4 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-white">
-                Original
-              </div>
-              {/* After label */}
-              <div className="absolute top-4 right-4 bg-accent/30 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-white">
-                Segmented
-              </div>
-            </div>
-          )}
-      </div>
-
-      {/* Analysis Results Panel */}
-      <div className="absolute bottom-8 left-8 bg-white/10 backdrop-blur-md p-5 rounded-xl border border-white/10 w-64 shadow-2xl max-h-80 overflow-y-auto">
-        <h4 className="text-white text-center text-xs font-bold uppercase tracking-widest mb-4 border-b border-white/10 pb-2 opacity-80">
-          Analysis Results
-        </h4>
-
-        {isLoadingYOLO ? (
-          <div className="flex items-center justify-center py-6">
-            <Loader size={24} className="animate-spin text-accent" />
-          </div>
-        ) : detections.length > 0 ? (
-          <div className="space-y-4">
-            {detections.map((det, idx) => (
-              <div
-                key={idx}
-                className="bg-white/5 p-3 rounded-lg border border-white/10 hover:bg-white/10 transition-colors"
-              >
-                <div className="font-semibold text-accent capitalize mb-2">
-                  {det.class} #{idx + 1}
-                </div>
-                <div className="grid grid-cols-[100px_1fr] gap-y-1 text-xs">
-                  <span className="text-medical-200">Confidence:</span>
-                  <span className="font-mono text-white text-right">
-                    {(det.conf * 100).toFixed(1)}%
-                  </span>
-                  <span className="text-medical-200">Bounding Box:</span>
-                  <span className="font-mono text-white text-right text-[10px]">
-                    [{det.box[0].toFixed(0)}, {det.box[1].toFixed(0)}]
-                  </span>
-                  {det.segments && (
-                    <>
-                      <span className="text-medical-200">Polygons:</span>
-                      <span className="font-mono text-white text-right">
-                        {det.segments.length} pts
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-medical-200 text-sm text-center py-6">
-            No detections found
-          </p>
-        )}
-      </div>
+        <div className="p-6">
+          <button
+            onClick={onClose}
+            className="w-full bg-white text-black py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-colors"
+          >
+            <X size={18} />
+            Close Viewer
+          </button>
+        </div>
+      </aside>
     </div>
   );
 };

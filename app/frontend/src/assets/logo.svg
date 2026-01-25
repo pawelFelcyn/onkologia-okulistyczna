@@ -1,7 +1,7 @@
 <svg
-  width="160"
+  width="96"
   height="36"
-  viewBox="0 0 160 36"
+  viewBox="0 0 96 36"
   fill="none"
   xmlns="http://www.w3.org/2000/svg"
 >
@@ -47,7 +47,7 @@
 
   <!-- Text: A -->
   <text
-    x="44"
+    x="42"
     y="25"
     fill="white"
     fill-opacity="0.95"
@@ -61,7 +61,7 @@
 
   <!-- Text: Eye -->
   <text
-    x="58"
+    x="56"
     y="25"
     fill="url(#textGradient)"
     font-size="20"

@@ -18,8 +18,8 @@ module.exports = {
         },
         accent: {
           light: "#38bdf8",
-          DEFAULT: "#0ea5e9",
-          dark: "#0284c7",
+          DEFAULT: "#38bdf8",
+          dark: "#7C3AED",
         },
       },
       animation: {

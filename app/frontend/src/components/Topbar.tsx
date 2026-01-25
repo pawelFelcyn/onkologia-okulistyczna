@@ -1,6 +1,6 @@
 import React from "react";
-import { Eye, Settings, User } from "lucide-react";
-import AEyeLogo from "../assets/AEye.svg";
+import { Settings, User } from "lucide-react";
+import AEyeLogo from "../assets/logo.svg";
 
 export const Topbar: React.FC = () => {
   return (
