@@ -56,6 +56,6 @@ async def calculcate_volume(files: list[UploadFile] = File(...)):
         img = Image.open(BytesIO(img_bytes))
         images.append(img)
     import random
-    volume = random.uniform(1000, 5000)
+    volume = random.uniform(1, 16)
 
     return {"volume": volume}
