@@ -49,6 +49,30 @@ def get_all_labeled_images() -> list[tuple[str, str, str]]:
     
     return ret
 
+def get_all_original_images():
+    root = os.path.join('Ophthalmic_Scans', 'raw')
+    results = []
+
+    for dirpath, dirnames, filenames in os.walk(root):
+        if os.path.basename(dirpath) == "original_images":
+            for fname in filenames:
+                if fname.lower().endswith(('.jpg', '.png')):
+                    full_path = os.path.join(dirpath, fname)
+                    results.append(full_path)
+    return results
+
+def get_all_resized_images(root: str = 'raw'):
+    root = os.path.join('Ophthalmic_Scans', root)
+    results = []
+
+    for dirpath, dirnames, filenames in os.walk(root):
+        if os.path.basename(dirpath) == "resized_images":
+            for fname in filenames:
+                if fname.lower().endswith(('.jpg', '.png')):
+                    full_path = os.path.join(dirpath, fname)
+                    results.append(full_path)
+    return results
+
 if __name__ == '__main__':
     c = get_all_labeled_images()
     print("Found {} labeled images.".format(len(c)))
