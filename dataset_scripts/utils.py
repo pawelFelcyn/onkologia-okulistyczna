@@ -61,6 +61,20 @@ def get_all_original_images():
                     results.append(full_path)
     return results
 
+def get_all_not_labeled_oct_scans():
+    root = os.path.join('Ophthalmic_Scans', 'raw')
+    results = []
+
+    for dirpath, dirnames, filenames in os.walk(root):
+        if os.path.basename(dirpath) == "original_images":
+            for fname in filenames:
+                if fname.lower().endswith(('.jpg', '.png')):
+                    label_path = os.path.join(dirpath, fname).replace('original_images', 'labels').replace('.jpg', '.txt').replace('.png', '.txt')
+                    if not os.path.isfile(label_path):
+                        full_path = os.path.join(dirpath, fname)
+                        results.append(full_path)
+    return results
+
 def get_all_resized_images(root: str = 'raw'):
     root = os.path.join('Ophthalmic_Scans', root)
     results = []
@@ -76,3 +90,5 @@ def get_all_resized_images(root: str = 'raw'):
 if __name__ == '__main__':
     c = get_all_labeled_images()
     print("Found {} labeled images.".format(len(c)))
+    c2 = get_all_not_labeled_oct_scans()
+    print("Found {} not labeled oct scans.".format(len(c2)))

@@ -3,7 +3,7 @@ import argparse
 from pathlib import Path
 
 
-def generate_tasks(base_path: Path, url_prefix: str, output_json: Path):
+def generate_tasks(base_path: Path, url_prefix: str, output_json: Path, img_type: str, only_not_labeled: bool):
     """
     Generate Label Studio tasks from folder structure and metadata files.
     """
@@ -19,16 +19,21 @@ def generate_tasks(base_path: Path, url_prefix: str, output_json: Path):
         patient_id = patient_folder.name.replace("sub-", "")
 
         for session_folder in patient_folder.glob("ses-*"):
-            color_path = session_folder / "color"
+            color_path = session_folder / img_type
 
             for area_folder in color_path.glob("*"):
                 for eye_folder in area_folder.glob("*"):
                     image_folder = eye_folder / "original_images"
                     metadata_folder = eye_folder / "metadata"
-
+                    labels_folder = eye_folder / "labels"
+                    
                     for img_file in image_folder.glob("*.*"):
                         metadata_file = metadata_folder / f"{img_file.stem}.json"
-
+                        label_file = labels_folder / f"{img_file.stem}.txt"
+                        
+                        if only_not_labeled and label_file.exists():
+                            continue
+                        
                         if not metadata_file.exists():
                             print(f"Missing metadata for image: {img_file}")
                             continue
@@ -84,11 +89,27 @@ if __name__ == "__main__":
         default="label_studio_tasks.json",
         help="Output JSON filename"
     )
+    
+    parser.add_argument(
+        "--img_type",
+        type=str,
+        default="color",
+        help="Image type"
+    )
+    
+    parser.add_argument(
+        "--only_not_labeled",
+        type=bool,
+        default=True,
+        help="Take only images that are not labeled yet"
+    )
 
     args = parser.parse_args()
 
     generate_tasks(
         base_path=Path(args.base_path),
         url_prefix=args.url_prefix.rstrip("/"),
-        output_json=Path(args.output)
+        output_json=Path(args.output),
+        img_type=args.img_type,
+        only_not_labeled=args.only_not_labeled
     )
