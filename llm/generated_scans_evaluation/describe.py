@@ -55,7 +55,7 @@ messages = utils.build_messages_from_prompt(prompt_path)
 df = pd.read_csv("Ophthalmic_Scans/splits/oct_scan_llm_description/test.csv") 
 df_outputs = pd.DataFrame(columns=["valid", "description", "image_path"])
 length = len(df)
-for _, row in tqdm.tqdm(df.iloc):
+for row in tqdm.tqdm(df.iloc):
     image_url = row["image_path"]
     image = Image.open(image_url).convert("RGB")
     local_messages = messages.copy()
