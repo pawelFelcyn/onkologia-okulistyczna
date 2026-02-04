@@ -57,7 +57,7 @@ df_outputs = pd.DataFrame(columns=["valid", "description", "image_path"])
 length = len(df)
 for row in tqdm.tqdm(df.iloc):
     image_url = row["image_path"]
-    image = Image.open(image_url).convert("RGB")
+    image = Image.open(os.path.join("Ophthalmic_Scans", image_url)).convert("RGB")
     local_messages = messages.copy()
     local_messages.append({
         "role": "user",
