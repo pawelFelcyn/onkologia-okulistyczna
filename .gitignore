@@ -4,6 +4,8 @@ yolo_dataset/
 runs/
 runs_unet/
 old_images/
+llm_eval_outputs/
+.env
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
