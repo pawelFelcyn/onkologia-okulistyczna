@@ -6,3 +6,4 @@ bitsandbytes==0.46.1
 deepeval==3.7.9
 Pillow==10.4.0
 tqdm==4.67.3
+qwen-vl-utils==0.0.14

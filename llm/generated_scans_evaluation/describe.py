@@ -18,24 +18,6 @@ model = os.getenv("MODEL_NAME", 'google/medgemma-4b-it')
 print("Using model:", model)
 prompt_path = os.getenv("PROMPT_PATH", 'Ophthalmic_Scans/prompts/recognize_generation_failures.json')
 
-def save_outputs(df: pd.DataFrame, model_name: str):
-    model_dir_name = model_name.replace("/", "_")
-
-    base_dir = "llm_eval_outputs"
-    model_dir = os.path.join(base_dir, model_dir_name)
-
-    os.makedirs(model_dir, exist_ok=True)
-
-    i = 1
-    while True:
-        filename = f"outputs{i}.csv"
-        path = os.path.join(model_dir, filename)
-        if not os.path.exists(path):
-            break
-        i += 1
-
-    df.to_csv(path, index=False)
-
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_compute_dtype=torch.bfloat16
@@ -70,4 +52,4 @@ for row in tqdm.tqdm(df.iloc):
     obj = json.loads(output[0]["generated_text"][-1]['content'])
     df_outputs = pd.concat([df_outputs, pd.DataFrame([{"valid": obj["valid"], "description": obj["notes"], "image_path": image_url}])], ignore_index=True)
     
-save_outputs(df_outputs, model)
+utils.save_outputs(df_outputs, model)
