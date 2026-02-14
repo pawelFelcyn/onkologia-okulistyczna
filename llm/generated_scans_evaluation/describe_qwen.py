@@ -2,7 +2,6 @@
 
 from transformers import Qwen2VLForConditionalGeneration, AutoProcessor, BitsAndBytesConfig
 from qwen_vl_utils import process_vision_info
-from PIL import Image
 import torch
 import pandas as pd
 import json
