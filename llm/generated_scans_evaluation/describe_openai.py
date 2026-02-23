@@ -23,7 +23,7 @@ def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
-df = pd.read_csv("Ophthalmic_Scans/splits/oct_scan_llm_description_generated_only/test.csv") 
+df = pd.read_csv("Ophthalmic_Scans/splits/oct_scan_llm_description_generated_only2/test.csv") 
 df_outputs = pd.DataFrame(columns=["valid", "description", "image_path"])
 
 base_messages_raw = utils.build_openai_messages_from_prompt(prompt_path)
