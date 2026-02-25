@@ -53,6 +53,7 @@ for _, row in tqdm.tqdm(df.iterrows(), total=df.shape[0]):
             model=model_name,
             messages=messages,
             max_tokens=500,
+            response_format={"type": "json_object"}
         )
 
         response_content = response.choices[0].message.content
