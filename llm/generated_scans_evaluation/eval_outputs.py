@@ -3,39 +3,34 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
 import sys
 import os
+from dotenv import load_dotenv
 
-DEFAULT_INPUT_CSV = "llm_eval_outputs/gpt-4o/outputs3.csv" 
+load_dotenv()
+load_dotenv('env.local')
 
+DEFAULT_INPUT_CSV = os.getenv("INPUT_CSV", "llm_eval_outputs/gpt-4o/outputs5.csv")
 def get_ground_truth(path):
-    """
-    Extracts the true label from the file path.
-    """
     path_lower = str(path).lower()
     if "invalid" in path_lower:
-        return "invalid"
+        return 0
     elif "valid" in path_lower:
-        return "valid"
+        return 1
     else:
-        return "unknown"
+        return None
 
 def normalize_prediction(val):
-    """
-    Standardizes the model's output to 'valid' or 'invalid'.
-    """
     val_str = str(val).lower().strip()
     if val_str in ['true', 'yes', 'valid', '1']:
-        return "valid"
+        return 1
     elif val_str in ['false', 'no', 'invalid', '0']:
-        return "invalid"
+        return 0
     else:
-        return "error"
+        return None
 
 input_csv = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_INPUT_CSV
-
-print(f"Loading results from: {input_csv}")
 
 if not os.path.exists(input_csv):
     print(f"Error: File {input_csv} does not exist.")
@@ -44,55 +39,61 @@ if not os.path.exists(input_csv):
 df = pd.read_csv(input_csv)
 
 df['y_true'] = df['image_path'].apply(get_ground_truth)
-df['y_pred'] = df['valid'].apply(normalize_prediction)
+df['valid_clean'] = df['valid'].apply(normalize_prediction)
 
-df_clean = df[
-    (df['y_true'] != 'unknown') & 
-    (df['y_pred'] != 'error')
-]
+df_clean = df.dropna(subset=['y_true', 'valid_clean'])
 
-y_true = df_clean['y_true']
-y_pred = df_clean['y_pred']
-labels = ["valid", "invalid"]
+y_true = df_clean['y_true'].astype(int)
+y_pred = df_clean['valid_clean'].astype(int)
 
-cm = confusion_matrix(y_true, y_pred, labels=labels)
-report_dict = classification_report(y_true, y_pred, target_names=labels, output_dict=True)
+tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
+
+acc = accuracy_score(y_true, y_pred)
+prec = precision_score(y_true, y_pred)
+rec = recall_score(y_true, y_pred)
+f1 = f1_score(y_true, y_pred)
 
 stats_text = (
-    f"Accuracy: {report_dict['accuracy']:.2f}\n\n"
-    f"Class 'valid':\n"
-    f"  Precision: {report_dict['valid']['precision']:.2f}\n"
-    f"  Recall:    {report_dict['valid']['recall']:.2f}\n"
-    f"  F1-Score:  {report_dict['valid']['f1-score']:.2f}\n\n"
-    f"Class 'invalid':\n"
-    f"  Precision: {report_dict['invalid']['precision']:.2f}\n"
-    f"  Recall:    {report_dict['invalid']['recall']:.2f}\n"
-    f"  F1-Score:  {report_dict['invalid']['f1-score']:.2f}"
+    f"--- OVERALL BINARY METRICS ---\n"
+    f"Total Samples: {len(df_clean)}\n"
+    f"Accuracy:      {acc:.2%}\n"
+    f"F1-Score:      {f1:.4f}\n\n"
+    f"--- CONFUSION MATRIX DETAILS ---\n"
+    f"TP (True Valid):    {tp}\n"
+    f"TN (True Invalid):  {tn}\n"
+    f"FP (False Valid):   {fp}  <-- Type I Error\n"
+    f"FN (False Invalid): {fn}  <-- Type II Error\n\n"
+    f"--- QUALITY RATIOS ---\n"
+    f"Precision:     {prec:.2%}\n"
+    f"Recall:        {rec:.2%}\n"
+    f"Specificity:   {tn/(tn+fp):.2%}"
 )
 
+print("\n" + "="*50)
+print(f"RESULTS FOR: {os.path.basename(input_csv)}")
+print("="*50)
+print(stats_text)
+print("="*50)
+
 try:
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(10, 7))
+    plt.subplots_adjust(right=0.6)
     
-    plt.subplots_adjust(bottom=0.25)
+    cm_data = [[tn, fp], [fn, tp]]
     
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-                xticklabels=labels, yticklabels=labels)
+    sns.heatmap(cm_data, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=['Pred INVALID', 'Pred VALID'], 
+                yticklabels=['Actual INVALID', 'Actual VALID'],
+                cbar=False)
     
+    plt.title(f'Binary Classification: {os.path.basename(input_csv)}')
     plt.xlabel('Predicted Label')
-    plt.ylabel('True Label (from path)')
-    plt.title(f'Confusion Matrix: {os.path.basename(input_csv)}')
+    plt.ylabel('Ground Truth')
     
-    plt.figtext(0.5, 0.02, stats_text, ha="center", fontsize=10, 
-                bbox={"facecolor":"orange", "alpha":0.1, "pad":5})
+    plt.figtext(0.65, 0.5, stats_text, ha="left", va="center", fontsize=11, 
+                family='monospace', bbox={"facecolor":"#f8f9fa", "alpha":0.9, "pad":10})
     
-    #output_img = "confusion_matrix_with_metrics.png"
-    #plt.savefig(output_img)
-    #print(f"Success! Plot saved to: {output_img}")
     plt.show()
     
 except Exception as e:
     print(f"Error generating plot: {e}")
-
-print("\n" + "="*60)
-print(classification_report(y_true, y_pred, target_names=labels))
-print("="*60)
