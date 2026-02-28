@@ -10,6 +10,8 @@ import numpy as np
 import json
 from tqdm import tqdm
 from torchmetrics import ConfusionMatrix
+from torch.utils.tensorboard import SummaryWriter
+
 
 def metrics_from_confusion_matrix(cm):
     tn, fp = cm[0]
@@ -36,6 +38,7 @@ def metrics_from_confusion_matrix(cm):
         "iou": iou
     }
 
+
 def get_confucion_matrcies(masks: torch.Tensor, preds: torch.Tensor):
     device = masks.device
     preds_fluid = preds[:, 0, :, :]
@@ -48,18 +51,20 @@ def get_confucion_matrcies(masks: torch.Tensor, preds: torch.Tensor):
     tumor_cm = cm(preds_tumor, masks_tumor)
     return np.array(fluid_cm.cpu()), np.array(tumor_cm.cpu())
 
+
 def get_metrics(masks: torch.Tensor, preds: torch.Tensor):
     fluid_cm, tumor_cm = get_confucion_matrcies(masks, preds)
     fluid_metrics = metrics_from_confusion_matrix(fluid_cm)
     tumor_metrics = metrics_from_confusion_matrix(tumor_cm)
     return fluid_metrics, fluid_cm, tumor_metrics, tumor_cm
-    
+
 
 class UNetDataset(Dataset):
-    def __init__(self, csv_path, root_dir="", transforms=None):
+    def __init__(self, csv_path, root_dir="", transforms=None, imgsz=None):
         self.data = pd.read_csv(csv_path)
         self.root_dir = root_dir
         self.transforms = transforms
+        self.imgsz = imgsz
         self.to_tensor = T.ToTensor()
 
     def __len__(self):
@@ -68,7 +73,7 @@ class UNetDataset(Dataset):
     def __getitem__(self, idx):
         row = self.data.iloc[idx]
 
-        img_path  = os.path.join(self.root_dir, row["image_path"])
+        img_path = os.path.join(self.root_dir, row["image_path"])
         tumor_mask_path = os.path.join(self.root_dir, row["tumor_mask_path"])
         fluid_mask_path = os.path.join(self.root_dir, row["fluid_mask_path"])
 
@@ -77,17 +82,24 @@ class UNetDataset(Dataset):
         tumor_mask = Image.open(tumor_mask_path).convert("L")
         fluid_mask = Image.open(fluid_mask_path).convert("L")
 
+        # if self.imgsz:
+        # img = img.resize((self.imgsz, self.imgsz), Image.BILINEAR)
+        # tumor_mask = tumor_mask.resize((self.imgsz, self.imgsz), Image.NEAREST)
+        # fluid_mask = fluid_mask.resize((self.imgsz, self.imgsz), Image.NEAREST)
+
         if self.transforms:
             img = self.transforms(img)
 
         img_tensor = self.to_tensor(img)
-        
-        tumor_mask_np = np.array(tumor_mask, dtype=np.int64)
-        fluid_mask_np = np.array(fluid_mask, dtype=np.int64)
-       
-        mask_tensor = torch.from_numpy(np.stack([fluid_mask_np, tumor_mask_np], axis=0))
+
+        tumor_mask_np = np.array(tumor_mask, dtype=np.float32) / 255.0
+        fluid_mask_np = np.array(fluid_mask, dtype=np.float32) / 255.0
+
+        mask_tensor = torch.from_numpy(
+            np.stack([fluid_mask_np, tumor_mask_np], axis=0))
 
         return img_tensor, mask_tensor
+
 
 class UNet(nn.Module):
     def __init__(self, in_channels=3, out_channels=2, base=64):
@@ -166,7 +178,7 @@ class UNet(nn.Module):
                         diffY // 2, diffY - diffY//2])
 
         return torch.cat([skip, up], dim=1)
-    
+
     def __get_run_dir(self):
         base_dir = "runs_unet"
         prefix = "run"
@@ -177,16 +189,17 @@ class UNet(nn.Module):
             if not os.path.exists(candidate):
                 return candidate
             i += 1
-    
+
     def train_model(self,
-          train_loader,
-          val_loader,
-          num_epochs=20,
-          lr=1e-4,
-          device=None):
+                    train_loader,
+                    val_loader,
+                    num_epochs=20,
+                    lr=1e-4,
+                    device=None):
 
         if device is None:
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            device = torch.device(
+                "cuda" if torch.cuda.is_available() else "cpu")
 
         run_dir = self.__get_run_dir()
         os.makedirs(run_dir, exist_ok=True)
@@ -194,18 +207,20 @@ class UNet(nn.Module):
         os.makedirs(weights_dir, exist_ok=True)
         self.to(device)
 
+        writer = SummaryWriter(log_dir=os.path.join(run_dir, "tensorboard"))
+
         criterion = nn.BCEWithLogitsLoss()
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
-        best_val_loss = float("inf")
+        best_val_dice = 0.0
 
         for epoch in range(1, num_epochs + 1):
             print(f"\nEpoch {epoch}/{num_epochs}")
             epoch_dir = os.path.join(run_dir, f"epoch_{epoch}")
             os.makedirs(epoch_dir, exist_ok=True)
-            epoch_data = {
-                'epoch_number': epoch
-            }
+            epoch_data = {'epoch_number': epoch}
+
+            # ── TRAIN ──────────────────────────────────────────────────────
             self.train()
             train_loss = 0.0
             for imgs, masks in tqdm(train_loader, desc=f"Epoch {epoch} - Training", leave=False):
@@ -222,9 +237,11 @@ class UNet(nn.Module):
             train_loss /= len(train_loader)
             epoch_data['train_loss'] = train_loss
 
-
+            # ── VAL ────────────────────────────────────────────────────────
             self.eval()
             val_loss = 0.0
+            val_fluid_cm = None
+            val_tumor_cm = None
             with torch.no_grad():
                 for imgs, masks in tqdm(val_loader, desc=f"Epoch {epoch} - Validation", leave=False):
                     imgs = imgs.to(device)
@@ -234,23 +251,59 @@ class UNet(nn.Module):
                     loss = criterion(preds, masks)
                     val_loss += loss.item()
 
+                    preds_bin = (torch.sigmoid(preds) > 0.5).float()
+                    f_cm, t_cm = get_confucion_matrcies(masks, preds_bin)
+                    val_fluid_cm = f_cm if val_fluid_cm is None else val_fluid_cm + f_cm
+                    val_tumor_cm = t_cm if val_tumor_cm is None else val_tumor_cm + t_cm
+
             val_loss /= len(val_loader)
             epoch_data['val_loss'] = val_loss
-            
+
+            fluid_m = metrics_from_confusion_matrix(val_fluid_cm)
+            tumor_m = metrics_from_confusion_matrix(val_tumor_cm)
+            val_dice_macro = (fluid_m['dice'] + tumor_m['dice']) / 2.0
+            val_iou_macro = (fluid_m['iou'] + tumor_m['iou']) / 2.0
+
+            epoch_data.update({
+                'val_fluid_dice': fluid_m['dice'], 'val_fluid_iou': fluid_m['iou'],
+                'val_tumor_dice': tumor_m['dice'], 'val_tumor_iou': tumor_m['iou'],
+                'val_dice_macro': val_dice_macro,  'val_iou_macro':  val_iou_macro,
+            })
+
             with open(os.path.join(epoch_dir, "epoch_data.json"), "w") as f:
-                json.dump(epoch_data, f)
-            torch.save(self.state_dict(), os.path.join(weights_dir, 'last.pth'))
-            print("✓ saved last.pth")
+                json.dump(epoch_data, f, indent=2)
 
-            print(f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+            # ── TENSORBOARD ────────────────────────────────────────────────
+            writer.add_scalar("Loss/train",         train_loss,     epoch)
+            writer.add_scalar("Loss/val",           val_loss,       epoch)
+            writer.add_scalar("Dice/val_fluid",     fluid_m['dice'], epoch)
+            writer.add_scalar("Dice/val_tumor",     tumor_m['dice'], epoch)
+            writer.add_scalar("Dice/val_macro",     val_dice_macro, epoch)
+            writer.add_scalar("IoU/val_fluid",      fluid_m['iou'],  epoch)
+            writer.add_scalar("IoU/val_tumor",      tumor_m['iou'],  epoch)
+            writer.add_scalar("IoU/val_macro",      val_iou_macro,  epoch)
+            writer.add_scalar("Recall/val_fluid",   fluid_m['recall'],  epoch)
+            writer.add_scalar("Recall/val_tumor",   tumor_m['recall'],  epoch)
+            writer.add_scalar("Precision/val_fluid",
+                              fluid_m['precision'], epoch)
+            writer.add_scalar("Precision/val_tumor",
+                              tumor_m['precision'], epoch)
 
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                torch.save(self.state_dict(), os.path.join(weights_dir, 'best.pth'))
-                print("✓ saved best_unet.pth")
+            torch.save(self.state_dict(), os.path.join(
+                weights_dir, 'last.pth'))
+            print(f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | "
+                  f"Dice fluid: {fluid_m['dice']:.4f} tumor: {tumor_m['dice']:.4f} macro: {val_dice_macro:.4f}")
 
-        print("\nFinished training. Best val loss:", best_val_loss)
-    
+            if val_dice_macro > best_val_dice:
+                best_val_dice = val_dice_macro
+                torch.save(self.state_dict(), os.path.join(
+                    weights_dir, 'best.pth'))
+                print(
+                    f"✓ saved best.pth  (val_dice_macro={best_val_dice:.4f})")
+
+        writer.close()
+        print("\nFinished training. Best val Dice (macro):", best_val_dice)
+
     def __get_test_run_dir(self):
         base_dir = "runs_unet"
         prefix = "test_run"
@@ -261,7 +314,7 @@ class UNet(nn.Module):
             if not os.path.exists(candidate):
                 return candidate
             i += 1
-            
+
     def __cn_to_dict(self, cn):
         return {
             "TP": int(cn[1][1]),
@@ -269,14 +322,15 @@ class UNet(nn.Module):
             "FP": int(cn[0][1]),
             "FN": int(cn[1][0])
         }
-    
+
     def test_model(self, test_loader, device=None):
         if device is None:
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            device = torch.device(
+                "cuda" if torch.cuda.is_available() else "cpu")
 
         test_results_dir = self.__get_test_run_dir()
         os.makedirs(test_results_dir, exist_ok=True)
-        
+
         self.to(device)
 
         self.eval()
@@ -289,7 +343,8 @@ class UNet(nn.Module):
                 preds = self(imgs)
                 preds = torch.sigmoid(preds)
                 preds = (preds > 0.5).float()
-                fluid_cm_local, tumor_cm_local = get_confucion_matrcies(masks, preds)
+                fluid_cm_local, tumor_cm_local = get_confucion_matrcies(
+                    masks, preds)
                 if fluid_cm is None:
                     fluid_cm = fluid_cm_local
                 else:
@@ -298,21 +353,21 @@ class UNet(nn.Module):
                     tumor_cm = tumor_cm_local
                 else:
                     tumor_cm += tumor_cm_local
-                    
+
         fluid_metrics = metrics_from_confusion_matrix(fluid_cm)
         tumor_metrics = metrics_from_confusion_matrix(tumor_cm)
-        
+
         with open(os.path.join(test_results_dir, "fluid_metrics.json"), "w") as f:
             json.dump(fluid_metrics, f)
         with open(os.path.join(test_results_dir, "tumor_metrics.json"), "w") as f:
             json.dump(tumor_metrics, f)
-            
+
         with open(os.path.join(test_results_dir, "fluid_cm.json"), "w") as f:
             json.dump(self.__cn_to_dict(fluid_cm), f)
         with open(os.path.join(test_results_dir, "tumor_cm.json"), "w") as f:
             json.dump(self.__cn_to_dict(tumor_cm), f)
-        
+
         return fluid_metrics, fluid_cm, tumor_metrics, tumor_cm
-            
+
     def save(self, path):
         torch.save(self.state_dict(), path)

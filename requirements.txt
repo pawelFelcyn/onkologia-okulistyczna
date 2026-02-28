@@ -9,6 +9,9 @@ opencv-python==4.11.0.86
 matplotlib==3.8.0
 ultralytics==8.3.225
 python-dotenv==1.2.1
-torchvision==0.24.0
-torch==2.9.0
+tensorboard>=2.14
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch==2.6.0+cu124
+torchvision==0.21.0+cu124
 torchmetrics==1.8.2
+torch-tb-profiler>=0.2.0
