@@ -1,5 +1,7 @@
 import unet_utils
 import os
+import random
+import numpy as np
 from torch.utils.data import DataLoader
 from utils import get_unique_path
 from dotenv import load_dotenv
@@ -7,6 +9,15 @@ import argparse
 import torch
 import re
 from pathlib import Path
+
+
+def set_seed(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 load_dotenv(dotenv_path='train_model/.env')
 
@@ -27,9 +38,10 @@ def get_last_run_model():
     return os.path.join(max_run_dir, "weights", "last.pth"), max_epoch
 
 
-def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16, unet_continue_last_run=False):
+def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16, unet_continue_last_run=False, seed=42):
+    set_seed(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    print(f"Using device: {device} | seed: {seed}")
 
     root_dir = os.path.join("Ophthalmic_Scans")
     train_dataset = unet_utils.UNetDataset(train_csv, root_dir, imgsz=imgsz)
@@ -92,10 +104,11 @@ if __name__ == "__main__":
         help="Continue training from last run checkpoint"
     )
     parser.add_argument("--save_path", type=str, default=None,
-                        help="Opctional model save path")
+                        help="Optional model save path")
     parser.add_argument("--epochs", type=int, default=default_epochs)
     parser.add_argument("--imgsz", type=int, default=512)
     parser.add_argument("--batch", type=int, default=default_batch)
+    parser.add_argument("--seed", type=int, default=int(os.getenv('SEED', '42')))
 
     args = parser.parse_args()
     main(**vars(args))
