@@ -13,4 +13,10 @@ conda activate nn_train
 pip install tensorboard>=2.14
 cd /projects/onkokul/onkologia-okulistyczna || exit -1
 
-srun python train_model/train_unet.py
+srun python train_model/train_unet.py \
+  --train_csv Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct/train.csv \
+  --val_csv   Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct/val.csv \
+  --epochs    50 \
+  --imgsz     512 \
+  --batch     16 \
+  --seed      42
