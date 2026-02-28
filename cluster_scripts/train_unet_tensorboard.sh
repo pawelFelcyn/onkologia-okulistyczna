@@ -19,4 +19,5 @@ srun python train_model/train_unet.py \
   --epochs    50 \
   --imgsz     512 \
   --batch     16 \
-  --seed      42
+  --seed      42 \
+  --save_path models/unet/baseline_scratch_seed42.pth
