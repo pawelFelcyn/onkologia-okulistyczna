@@ -22,20 +22,43 @@ def set_seed(seed: int):
 load_dotenv(dotenv_path='train_model/.env')
 
 
-def get_last_run_model():
+def get_last_run_model() -> tuple[str, int]:
+    """Find the latest resumable checkpoint in runs_unet/.
+
+    Iterates over run<N> directories from newest to oldest and returns
+    the path to last.pth and the highest completed epoch number for the
+    first run that has both a completed epoch directory and a checkpoint.
+
+    Returns:
+        (weights_path, trained_epochs): path to last.pth and epoch count.
+
+    Raises:
+        FileNotFoundError: if no resumable run exists.
+    """
     unet_runs = Path('runs_unet')
-    max_run = max(
-        int(m.group(1))
-        for p in unet_runs.iterdir()
-        if p.is_dir() and (m := re.fullmatch(r"run(\d+)", p.name))
+    # Find all run<N> directories sorted in descending order (newest first)
+    runs = sorted(
+        [(int(m.group(1)), p) for p in unet_runs.iterdir()
+         if p.is_dir() and (m := re.fullmatch(r"run(\d+)", p.name))],
+        reverse=True
     )
-    max_run_dir = Path(os.path.join(unet_runs, f'run{max_run}'))
-    max_epoch = max(
-        int(m.group(1))
-        for p in max_run_dir.iterdir()
-        if p.is_dir() and any(p.iterdir()) and (m := re.fullmatch(r"epoch_(\d+)", p.name))
+    if not runs:
+        raise FileNotFoundError("No runs_unet/run* directories found — nothing to resume.")
+    for _, run_dir in runs:
+        epochs_done = [
+            int(m.group(1))
+            for p in run_dir.iterdir()
+            if p.is_dir() and any(p.iterdir()) and (m := re.fullmatch(r"epoch_(\d+)", p.name))
+        ]
+        if epochs_done:
+            max_epoch = max(epochs_done)
+            weights = run_dir / "weights" / "last.pth"
+            if weights.exists():
+                print(f"Resuming from: {run_dir.name}, epoch {max_epoch}")
+                return str(weights), max_epoch
+    raise FileNotFoundError(
+        "Found run* directories but none contain a completed epoch and a last.pth checkpoint."
     )
-    return os.path.join(max_run_dir, "weights", "last.pth"), max_epoch
 
 
 def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16, unet_continue_last_run=False, seed=42):
@@ -52,15 +75,14 @@ def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16, une
     model = unet_utils.UNet(3, 2)
 
     if unet_continue_last_run:
-        print("Continue training from last run...")
+        print("Resuming training from last checkpoint...")
         last_weights, trained_epochs = get_last_run_model()
-        print(
-            f"Last run will be used to continue training from epoch {trained_epochs + 1}.")
+        print(f"Resuming from epoch {trained_epochs + 1} (checkpoint: {last_weights})")
         model.load_state_dict(torch.load(last_weights, map_location=device))
         epochs = epochs - trained_epochs
 
-    if epochs < 0:
-        print("No more epochs to train")
+    if epochs <= 0:
+        print("No remaining epochs to train — target already reached.")
         return
 
     model.train_model(train_loader, val_loader, epochs, device=device)
@@ -97,11 +119,12 @@ if __name__ == "__main__":
         default=os.path.join(default_split, "val.csv"),
         help="Path to val.csv",
     )
+    _env_continue = os.getenv('UNET_CONTINUE_LAST_RUN', 'false').strip().lower()
     parser.add_argument(
         "--unet_continue_last_run",
         action="store_true",
-        default=bool(os.getenv('UNET_CONTINUE_LAST_RUN', False)),
-        help="Continue training from last run checkpoint"
+        default=_env_continue == 'true',
+        help="Resume training from the latest checkpoint (set UNET_CONTINUE_LAST_RUN=true to enable via .env)"
     )
     parser.add_argument("--save_path", type=str, default=None,
                         help="Optional model save path")

@@ -39,7 +39,7 @@ def metrics_from_confusion_matrix(cm):
     }
 
 
-def get_confucion_matrcies(masks: torch.Tensor, preds: torch.Tensor):
+def get_confusion_matrices(masks: torch.Tensor, preds: torch.Tensor):
     device = masks.device
     preds_fluid = preds[:, 0, :, :]
     preds_tumor = preds[:, 1, :, :]
@@ -53,7 +53,7 @@ def get_confucion_matrcies(masks: torch.Tensor, preds: torch.Tensor):
 
 
 def get_metrics(masks: torch.Tensor, preds: torch.Tensor):
-    fluid_cm, tumor_cm = get_confucion_matrcies(masks, preds)
+    fluid_cm, tumor_cm = get_confusion_matrices(masks, preds)
     fluid_metrics = metrics_from_confusion_matrix(fluid_cm)
     tumor_metrics = metrics_from_confusion_matrix(tumor_cm)
     return fluid_metrics, fluid_cm, tumor_metrics, tumor_cm
@@ -82,10 +82,11 @@ class UNetDataset(Dataset):
         tumor_mask = Image.open(tumor_mask_path).convert("L")
         fluid_mask = Image.open(fluid_mask_path).convert("L")
 
-        # if self.imgsz:
-        # img = img.resize((self.imgsz, self.imgsz), Image.BILINEAR)
-        # tumor_mask = tumor_mask.resize((self.imgsz, self.imgsz), Image.NEAREST)
-        # fluid_mask = fluid_mask.resize((self.imgsz, self.imgsz), Image.NEAREST)
+        if self.imgsz:
+            # Resize image with bilinear interpolation; masks with nearest to preserve label values
+            img = img.resize((self.imgsz, self.imgsz), Image.BILINEAR)
+            tumor_mask = tumor_mask.resize((self.imgsz, self.imgsz), Image.NEAREST)
+            fluid_mask = fluid_mask.resize((self.imgsz, self.imgsz), Image.NEAREST)
 
         if self.transforms:
             img = self.transforms(img)
@@ -252,7 +253,7 @@ class UNet(nn.Module):
                     val_loss += loss.item()
 
                     preds_bin = (torch.sigmoid(preds) > 0.5).float()
-                    f_cm, t_cm = get_confucion_matrcies(masks, preds_bin)
+                    f_cm, t_cm = get_confusion_matrices(masks, preds_bin)
                     val_fluid_cm = f_cm if val_fluid_cm is None else val_fluid_cm + f_cm
                     val_tumor_cm = t_cm if val_tumor_cm is None else val_tumor_cm + t_cm
 
@@ -302,7 +303,7 @@ class UNet(nn.Module):
                     f"✓ saved best.pth  (val_dice_macro={best_val_dice:.4f})")
 
         writer.close()
-        print("\nFinished training. Best val Dice (macro):", best_val_dice)
+        print(f"\nTraining complete. Best val Dice (macro): {best_val_dice:.4f}")
 
     def __get_test_run_dir(self):
         base_dir = "runs_unet"
@@ -343,7 +344,7 @@ class UNet(nn.Module):
                 preds = self(imgs)
                 preds = torch.sigmoid(preds)
                 preds = (preds > 0.5).float()
-                fluid_cm_local, tumor_cm_local = get_confucion_matrcies(
+                fluid_cm_local, tumor_cm_local = get_confusion_matrices(
                     masks, preds)
                 if fluid_cm is None:
                     fluid_cm = fluid_cm_local
