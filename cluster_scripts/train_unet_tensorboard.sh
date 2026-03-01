@@ -18,6 +18,6 @@ srun python train_model/train_unet.py \
   --val_csv   Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct/val.csv \
   --epochs    50 \
   --imgsz     512 \
-  --batch     16 \
+  --batch     8 \
   --seed      42 \
   --save_path models/unet/baseline_scratch_seed42.pth
