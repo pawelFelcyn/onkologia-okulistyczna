@@ -10,7 +10,7 @@
 
 module load anaconda
 conda activate nn_train
-pip install tensorboard>=2.14
+pip install "tensorboard>=2.14"
 cd /projects/onkokul/onkologia-okulistyczna || exit -1
 
 srun python train_model/train_unet.py \
