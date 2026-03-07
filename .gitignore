@@ -219,3 +219,7 @@ dataset/
 data/
 prepare_dataset/utility_scripts_for_L_R
 .idea
+train_model/transfer_learning/baseline_results/
+train_model/transfer_learning/runs_kermany
+app/*.md
+/train_model/transfer_learning/OCT2018/
