@@ -25,6 +25,8 @@ from torchvision.datasets import ImageFolder
 
 CLASSES     = ["CNV", "DME", "DRUSEN", "NORMAL"]
 NUM_CLASSES = 4
+TRAIN_RESIZE_SIZE = 560
+IMAGE_SIZE = 512
 
 
 def _expected_split_dirs(data_dir: Path) -> dict[str, dict[str, Path]]:
@@ -222,11 +224,11 @@ def get_transforms(split: str) -> T.Compose:
     Return the transform pipeline for the given split.
 
     Train:
-        Resize(256) → RandomCrop(224) → HorizontalFlip → Rotation(±10°)
+        Resize(560) → RandomCrop(512) → HorizontalFlip → Rotation(±10°)
         → ColorJitter → ToTensor → Normalize(0.5, 0.5)
 
     Val / Test:
-        Resize(224) → CenterCrop(224) → ToTensor → Normalize(0.5, 0.5)
+        Resize(512) → CenterCrop(512) → ToTensor → Normalize(0.5, 0.5)
 
     Note: VerticalFlip is intentionally disabled – OCT images have a fixed
     anatomical top-to-bottom orientation.
@@ -235,8 +237,8 @@ def get_transforms(split: str) -> T.Compose:
 
     if split == "train":
         return T.Compose([
-            T.Resize(256),
-            T.RandomCrop(224),
+            T.Resize(TRAIN_RESIZE_SIZE),
+            T.RandomCrop(IMAGE_SIZE),
             T.RandomHorizontalFlip(),
             T.RandomRotation(degrees=10),
             T.ColorJitter(brightness=0.2, contrast=0.2),
@@ -245,8 +247,8 @@ def get_transforms(split: str) -> T.Compose:
         ])
     else:
         return T.Compose([
-            T.Resize(224),
-            T.CenterCrop(224),
+            T.Resize(IMAGE_SIZE),
+            T.CenterCrop(IMAGE_SIZE),
             T.ToTensor(),
             normalize,
         ])

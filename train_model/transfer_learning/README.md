@@ -74,6 +74,8 @@ This script:
 - validates the expected `train/` and `test/` folder structure,
 - prints image counts for every class and split.
 
+It does not apply augmentation and does not rewrite the images on disk. All resizing and augmentation are applied later, on the fly, inside the PyTorch data pipeline used by training and evaluation.
+
 Note: the Kaggle dataset slug is `kermany2018`, but some downloaded copies may contain an internal folder named `OCT2017`. The preparation script normalizes that and copies the usable dataset into your requested `--data_dir`.
 
 If the dataset is already downloaded, you can run only the validation/summary step:
@@ -90,9 +92,11 @@ python prepare_kermany.py --data_dir ./OCT2018
 python train_kermany.py \
     --data_dir   ./OCT2018 \
     --epochs     25 \
-    --batch_size 32 \
+    --batch_size 8 \
     --output_dir ./runs_kermany
 ```
+
+Recommended after download: run training directly on the prepared dataset. The current pipeline resizes samples to `512×512` during loading, which matches downstream U-Net fine-tuning.
 
 **What happens:**
 - Splits the train set into train (90%) and validation (10%)
@@ -173,12 +177,14 @@ The encoder architecture (`double_conv` blocks, `base=64`) is identical to `UNet
 
 ## Augmentation Policy
 
+The following transforms are applied on the fly during data loading. The downloaded dataset in `OCT2018/` stays unchanged on disk.
+
 | Transform        | Train | Val / Test | Notes                                      |
 |------------------|-------|------------|--------------------------------------------|
-| Resize(256)      | ✓     |            |                                            |
-| RandomCrop(224)  | ✓     |            |                                            |
-| Resize(224)      |       | ✓          |                                            |
-| CenterCrop(224)  |       | ✓          |                                            |
+| Resize(560)      | ✓     |            | Prepares a larger canvas before cropping   |
+| RandomCrop(512)  | ✓     |            | Final train size                           |
+| Resize(512)      |       | ✓          | Final validation/test size                 |
+| CenterCrop(512)  |       | ✓          | Keeps evaluation deterministic             |
 | HorizontalFlip   | ✓     |            |                                            |
 | Rotation ±10°    | ✓     |            |                                            |
 | ColorJitter      | ✓     |            | brightness=0.2, contrast=0.2               |
