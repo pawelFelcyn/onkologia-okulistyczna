@@ -13,8 +13,8 @@ Test evaluation → eval_kermany.py
 Usage:
     python train_kermany.py --data_dir ./OCT2018 --epochs 25 --batch_size 32
 
-Download dataset before training:
-    python train_kermany.py --download --data_dir ./OCT2018
+Prepare the dataset first:
+    python prepare_kermany.py --download --data_dir ./OCT2018
 
 TensorBoard:
     tensorboard --logdir <output_dir>/tensorboard
@@ -30,7 +30,7 @@ from torchmetrics.classification import MulticlassF1Score, MulticlassAccuracy
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from kermany_dataset import download_kermany, build_dataloaders, NUM_CLASSES
+from kermany_dataset import build_dataloaders, NUM_CLASSES
 from kermany_model import KermanyClassifier
 
 # ---------------------------------------------------------------------------
@@ -176,7 +176,7 @@ def train(
 
     print(f"\n[DONE] Encoder: {encoder_path}")
     print(f"[DONE] TensorBoard: tensorboard --logdir {out / 'tensorboard'}")
-    print(f"[INFO] Ewaluacja: python eval_kermany.py --weights {encoder_path}")
+    print(f"[INFO] Evaluation: python eval_kermany.py --weights {encoder_path}")
     return model.encoder
 
 
@@ -188,8 +188,6 @@ def parse_args():
     p = argparse.ArgumentParser(
         description="Kermany OCT – U-Net encoder pretraining (classification)"
     )
-    p.add_argument("--download",     action="store_true",
-                   help="Download dataset from Kaggle before training")
     p.add_argument("--data_dir",     default="./OCT2018")
     p.add_argument("--epochs",       type=int,   default=25)
     p.add_argument("--batch_size",   type=int,   default=32)
@@ -206,9 +204,6 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-
-    if args.download:
-        download_kermany(dest_dir=args.data_dir)
 
     train(
         data_dir       = args.data_dir,
