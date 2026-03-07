@@ -11,9 +11,11 @@ Kermany OCT Dataset utilities:
 
 import sys
 import shutil
+import random
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import torchvision.transforms as T
@@ -27,6 +29,15 @@ CLASSES     = ["CNV", "DME", "DRUSEN", "NORMAL"]
 NUM_CLASSES = 4
 TRAIN_RESIZE_SIZE = 560
 IMAGE_SIZE = 512
+WORKER_SEED_BASE = 42
+
+
+def seed_worker(worker_id: int) -> None:
+    """Seed DataLoader workers in a multiprocessing-safe way."""
+    worker_seed = WORKER_SEED_BASE + worker_id
+    random.seed(worker_seed)
+    np.random.seed(worker_seed)
+    torch.manual_seed(worker_seed)
 
 
 def _expected_split_dirs(data_dir: Path) -> dict[str, dict[str, Path]]:
@@ -263,6 +274,7 @@ def build_dataloaders(
     batch_size:  int,
     val_split:   float = 0.1,
     num_workers: int   = 4,
+    seed:        int   = 42,
 ) -> tuple:
     """
     Build DataLoaders for train / val / test.
@@ -286,9 +298,14 @@ def build_dataloaders(
     n_val   = int(n_total * val_split)
     n_train = n_total - n_val
 
+    global WORKER_SEED_BASE
+    WORKER_SEED_BASE = seed
+
+    split_generator = torch.Generator().manual_seed(seed)
+
     train_subset, val_subset = torch.utils.data.random_split(
         train_full, [n_train, n_val],
-        generator=torch.Generator().manual_seed(42),
+        generator=split_generator,
     )
 
     # Validation split uses val/test transforms (no augmentation)
@@ -296,12 +313,17 @@ def build_dataloaders(
         str(data_dir / "train"), transform=get_transforms("val")
     )
 
+    loader_generator = torch.Generator().manual_seed(seed)
+
     train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True,
-                              num_workers=num_workers, pin_memory=True)
+                              num_workers=num_workers, pin_memory=True,
+                              worker_init_fn=seed_worker, generator=loader_generator)
     val_loader   = DataLoader(val_subset,   batch_size=batch_size, shuffle=False,
-                              num_workers=num_workers, pin_memory=True)
+                              num_workers=num_workers, pin_memory=True,
+                              worker_init_fn=seed_worker)
     test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False,
-                              num_workers=num_workers, pin_memory=True)
+                              num_workers=num_workers, pin_memory=True,
+                              worker_init_fn=seed_worker)
 
     print(f"[INFO] Train: {n_train}  |  Val: {n_val}  |  Test: {len(test_dataset)}")
     print(f"[INFO] Classes: {train_full.classes}")
