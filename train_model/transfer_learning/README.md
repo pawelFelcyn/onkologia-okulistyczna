@@ -93,10 +93,13 @@ python train_kermany.py \
     --data_dir   ./OCT2018 \
     --epochs     25 \
     --batch_size 8 \
+    --seed       42 \
     --output_dir ./runs_kermany
 ```
 
 Recommended after download: run training directly on the prepared dataset. The current pipeline resizes samples to `512×512` during loading, which matches downstream U-Net fine-tuning.
+
+The `--seed` flag fixes the train/validation split, DataLoader shuffling, worker RNG state and the main PyTorch/NumPy/Python RNGs, which makes experiments much easier to reproduce.
 
 **What happens:**
 - Splits the train set into train (90%) and validation (10%)
@@ -119,6 +122,7 @@ Recommended after download: run training directly on the prepared dataset. The c
 | `--base`         | `64`              | Base channels of the U-Net encoder   |
 | `--num_workers`  | `4`               | DataLoader worker threads            |
 | `--val_split`    | `0.1`             | Fraction of train set used for val   |
+| `--seed`         | `42`              | Random seed for reproducible runs    |
 | `--output_dir`   | `./runs_kermany`  | Directory for weights and logs       |
 
 **CLI flags for `prepare_kermany.py`:**

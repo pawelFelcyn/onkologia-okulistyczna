@@ -22,8 +22,10 @@ TensorBoard:
 
 import argparse
 import json
+import random
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torchmetrics.classification import MulticlassF1Score, MulticlassAccuracy
@@ -36,6 +38,16 @@ from kermany_model import KermanyClassifier
 # ---------------------------------------------------------------------------
 # Metrics
 # ---------------------------------------------------------------------------
+
+def set_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def build_metrics(device: torch.device):
     acc = MulticlassAccuracy(num_classes=NUM_CLASSES, average="macro").to(device)
@@ -96,13 +108,16 @@ def train(
     num_workers:    int   = 4,
     output_dir:     str   = "./runs_kermany",
     val_split:      float = 0.1,
+    seed:           int   = 42,
 ):
+    set_seed(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[INFO] Device: {device}")
+    print(f"[INFO] Seed: {seed}")
 
     # DataLoaders (test loader not needed here – evaluation is done in eval_kermany.py)
     train_loader, val_loader, _ = build_dataloaders(
-        data_dir, batch_size, val_split=val_split, num_workers=num_workers
+        data_dir, batch_size, val_split=val_split, num_workers=num_workers, seed=seed
     )
 
     # Model
@@ -199,6 +214,8 @@ def parse_args():
     p.add_argument("--num_workers",  type=int,   default=4)
     p.add_argument("--output_dir",   default="./runs_kermany")
     p.add_argument("--val_split",    type=float, default=0.1)
+    p.add_argument("--seed",         type=int,   default=42,
+                   help="Random seed for reproducible split, shuffling and augmentation")
     return p.parse_args()
 
 
@@ -216,4 +233,5 @@ if __name__ == "__main__":
         num_workers    = args.num_workers,
         output_dir     = args.output_dir,
         val_split      = args.val_split,
+        seed           = args.seed,
     )
