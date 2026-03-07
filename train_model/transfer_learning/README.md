@@ -12,9 +12,10 @@ The encoder learns OCT-specific features (retinal layers, fluid textures, pathol
 
 ```
 transfer_learning/
-├── kermany_dataset.py   # Dataset: download, transforms, DataLoaders
+├── kermany_dataset.py   # Dataset: download, validation, summary, transforms, DataLoaders
 ├── kermany_model.py     # Model: UNetEncoder, KermanyClassifier
-├── train_kermany.py     # Training loop, early stopping, encoder checkpoint
+├── prepare_kermany.py   # Download + validate + summarize dataset
+├── train_kermany.py     # Training loop on already prepared data
 └── eval_kermany.py      # Evaluation: accuracy, macro F1, per-class F1, confusion matrix
 ```
 
@@ -46,10 +47,14 @@ OCT2018/
 ## Requirements
 
 ```bash
-pip install torch torchvision torchmetrics tensorboard kaggle tqdm
+pip install torch torchvision torchmetrics tensorboard tqdm kagglehub kaggle
 ```
 
-Kaggle API token required for dataset download:  
+Preferred download backend: `kagglehub`.
+
+Fallback download backend: `kaggle` API if `kagglehub` is unavailable or fails in your environment.
+
+If you use the fallback Kaggle API flow, you may need an API token:  
 Get it at https://www.kaggle.com/settings → **API → Create New Token**  
 Place the downloaded `kaggle.json` in `~/.kaggle/kaggle.json`
 
@@ -60,10 +65,22 @@ Place the downloaded `kaggle.json` in `~/.kaggle/kaggle.json`
 ### Step 1 – Download the dataset
 
 ```bash
-python train_kermany.py --download --data_dir ./OCT2018
+python prepare_kermany.py --download --data_dir ./OCT2018
 ```
 
-Skip this step if you already have the dataset locally.
+This script:
+- downloads the dataset with `kagglehub` by default,
+- falls back to the Kaggle API if needed,
+- validates the expected `train/` and `test/` folder structure,
+- prints image counts for every class and split.
+
+Note: the Kaggle dataset slug is `kermany2018`, but some downloaded copies may contain an internal folder named `OCT2017`. The preparation script normalizes that and copies the usable dataset into your requested `--data_dir`.
+
+If the dataset is already downloaded, you can run only the validation/summary step:
+
+```bash
+python prepare_kermany.py --data_dir ./OCT2018
+```
 
 ---
 
@@ -89,7 +106,6 @@ python train_kermany.py \
 
 | Flag             | Default           | Description                          |
 |------------------|-------------------|--------------------------------------|
-| `--download`     | off               | Download dataset from Kaggle first   |
 | `--data_dir`     | `./OCT2018`       | Path to the dataset root             |
 | `--epochs`       | `25`              | Maximum number of epochs             |
 | `--batch_size`   | `32`              | Batch size                           |
@@ -100,6 +116,13 @@ python train_kermany.py \
 | `--num_workers`  | `4`               | DataLoader worker threads            |
 | `--val_split`    | `0.1`             | Fraction of train set used for val   |
 | `--output_dir`   | `./runs_kermany`  | Directory for weights and logs       |
+
+**CLI flags for `prepare_kermany.py`:**
+
+| Flag         | Default     | Description                                 |
+|--------------|-------------|---------------------------------------------|
+| `--download` | off         | Download dataset before validation          |
+| `--data_dir` | `./OCT2018` | Path to the dataset root                    |
 
 ---
 
