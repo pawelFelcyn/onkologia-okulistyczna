@@ -61,7 +61,7 @@ def get_last_run_model() -> tuple[str, int]:
     )
 
 
-def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16, unet_continue_last_run=False, seed=42):
+def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16, unet_continue_last_run=False, seed=42, encoder_weights=None):
     set_seed(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device} | seed: {seed}")
@@ -73,6 +73,13 @@ def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16, une
     train_loader = DataLoader(train_dataset, batch_size=batch, shuffle=True)
     val_loader = DataLoader(val_dataset,   batch_size=batch, shuffle=False)
     model = unet_utils.UNet(3, 2)
+
+    if encoder_weights:
+        state = torch.load(encoder_weights, map_location="cpu", weights_only=True)
+        missing, unexpected = model.load_state_dict(state, strict=False)
+        print(f"[INFO] Loaded encoder weights from: {encoder_weights}")
+        if missing:
+            print(f"[INFO] Decoder/output layers will train from scratch: {missing}")
 
     if unet_continue_last_run:
         print("Resuming training from last checkpoint...")
@@ -132,6 +139,8 @@ if __name__ == "__main__":
     parser.add_argument("--imgsz", type=int, default=512)
     parser.add_argument("--batch", type=int, default=default_batch)
     parser.add_argument("--seed", type=int, default=int(os.getenv('SEED', '42')))
+    parser.add_argument("--encoder_weights", type=str, default=None,
+                        help="Path to pretrained encoder checkpoint (e.g. from train_kermany.py)")
 
     args = parser.parse_args()
     main(**vars(args))
