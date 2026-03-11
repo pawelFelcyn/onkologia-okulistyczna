@@ -180,6 +180,9 @@ class UNet(nn.Module):
 
         return torch.cat([skip, up], dim=1)
 
+    def get_encoder_blocks(self):
+        return [self.conv1, self.conv2, self.conv3, self.conv4, self.conv5]
+
     def __get_run_dir(self):
         base_dir = "runs_unet"
         prefix = "run"
@@ -196,7 +199,8 @@ class UNet(nn.Module):
                     val_loader,
                     num_epochs=20,
                     lr=1e-4,
-                    device=None):
+                    device=None,
+                    freeze_encoder=False):
 
         if device is None:
             device = torch.device(
@@ -211,7 +215,13 @@ class UNet(nn.Module):
         writer = SummaryWriter(log_dir=os.path.join(run_dir, "tensorboard"))
 
         criterion = nn.BCEWithLogitsLoss()
-        optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+        trainable_parameters = [p for p in self.parameters() if p.requires_grad]
+        optimizer = torch.optim.Adam(trainable_parameters, lr=lr)
+        encoder_blocks = self.get_encoder_blocks()
+
+        if freeze_encoder:
+            trainable_count = sum(p.numel() for p in trainable_parameters)
+            print(f"[INFO] Training decoder/head only. Trainable parameters: {trainable_count:,}")
 
         best_val_dice = 0.0
 
@@ -223,6 +233,10 @@ class UNet(nn.Module):
 
             # ── TRAIN ──────────────────────────────────────────────────────
             self.train()
+            if freeze_encoder:
+                for block in encoder_blocks:
+                    block.eval()
+
             train_loss = 0.0
             for imgs, masks in tqdm(train_loader, desc=f"Epoch {epoch} - Training", leave=False):
                 imgs = imgs.to(device)
