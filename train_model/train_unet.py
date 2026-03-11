@@ -61,7 +61,9 @@ def get_last_run_model() -> tuple[str, int]:
     )
 
 
-def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16, unet_continue_last_run=False, seed=42, encoder_weights=None):
+def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16,
+         unet_continue_last_run=False, seed=42, encoder_weights=None,
+         freeze_encoder=False):
     set_seed(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device} | seed: {seed}")
@@ -81,6 +83,13 @@ def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16, une
         if missing:
             print(f"[INFO] Decoder/output layers will train from scratch: {missing}")
 
+    if freeze_encoder:
+        encoder_blocks = [model.conv1, model.conv2, model.conv3, model.conv4, model.conv5]
+        for block in encoder_blocks:
+            for param in block.parameters():
+                param.requires_grad = False
+        print("[INFO] Encoder blocks conv1-conv5 are frozen.")
+
     if unet_continue_last_run:
         print("Resuming training from last checkpoint...")
         last_weights, trained_epochs = get_last_run_model()
@@ -92,7 +101,8 @@ def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16, une
         print("No remaining epochs to train — target already reached.")
         return
 
-    model.train_model(train_loader, val_loader, epochs, device=device)
+    model.train_model(train_loader, val_loader, epochs, device=device,
+                      freeze_encoder=freeze_encoder)
 
     default_dir = "models/unet"
     os.makedirs(default_dir, exist_ok=True)
@@ -141,6 +151,11 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=int(os.getenv('SEED', '42')))
     parser.add_argument("--encoder_weights", type=str, default=None,
                         help="Path to pretrained encoder checkpoint (e.g. from train_kermany.py)")
+    parser.add_argument(
+        "--freeze_encoder",
+        action="store_true",
+        help="Freeze encoder blocks conv1-conv5 during segmentation training"
+    )
 
     args = parser.parse_args()
     main(**vars(args))
