@@ -101,8 +101,8 @@ def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16,
         print("No remaining epochs to train — target already reached.")
         return
 
-    model.train_model(train_loader, val_loader, epochs, device=device,
-                      freeze_encoder=freeze_encoder)
+    weights_dir = model.train_model(train_loader, val_loader, epochs, device=device,
+                                    freeze_encoder=freeze_encoder)
 
     default_dir = "models/unet"
     os.makedirs(default_dir, exist_ok=True)
@@ -111,8 +111,13 @@ def main(train_csv, val_csv, save_path=None, epochs=50, imgsz=512, batch=16,
         save_path = os.path.join(default_dir, "weights.pth")
 
     save_path = get_unique_path(save_path)
+
+    best_ckpt = os.path.join(weights_dir, "best.pth")
+    model.load_state_dict(torch.load(best_ckpt, map_location=device))
+    print(f"Loaded best checkpoint from: {best_ckpt}")
+
     model.save(save_path)
-    print(f"\n✅ Saved model in: {save_path}")
+    print(f"\n✅ Saved best model in: {save_path}")
 
 
 if __name__ == "__main__":
