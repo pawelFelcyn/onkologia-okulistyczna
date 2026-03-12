@@ -12,7 +12,7 @@ module load anaconda
 conda activate nn_train
 cd /projects/onkokul/onkologia-okulistyczna || exit -1
 
-MODEL_PATH="models/unet/kermany_transfer_seed42.pth"
+MODEL_PATH="models/unet/kermany_transfer_frozen_seed42.pth"
 
 srun python train_model/test_unet.py \
   --split         Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct \
