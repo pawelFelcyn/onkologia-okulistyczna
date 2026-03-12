@@ -318,6 +318,7 @@ class UNet(nn.Module):
 
         writer.close()
         print(f"\nTraining complete. Best val Dice (macro): {best_val_dice:.4f}")
+        return weights_dir
 
     def __get_test_run_dir(self):
         base_dir = "runs_unet"
