@@ -26,7 +26,7 @@ Default encoder output path:
 - train_model/transfer_learning/runs_kermany_seed<SEED>/encoder_kermany_pretrained.pth
 
 ### UNet Baseline (Scratch)
-- sbatch cluster_scripts/transfer-learning/train_unet_tensorboard.sh 13
+- sbatch cluster_scripts/transfer-learning/train_unet_baseline.sh 13
 
 Saved model path:
 - models/unet/baseline_scratch_seed<SEED>.pth
@@ -52,3 +52,16 @@ Saved model path:
 - freeze: sbatch cluster_scripts/transfer-learning/eval_unet_kermany_freeze.sh 13
 
 Test outputs are written to runs_unet/test_run* (from train_model/test_unet.py).
+
+## Final Training Outputs (What You Get Now)
+Each UNet training run now creates a named directory in runs_unet with approach, seed and timestamp encoded in the folder name.
+
+In each run directory you will get:
+- run_meta.json: configuration and provenance (seed, approach, split, commit, SLURM job id, resume mode),
+- run_summary.json: final summary with best metrics and saved model path,
+- weights/: best.pth, last.pth, best_tumor.pth, best_fluid.pth,
+- tensorboard/: TensorBoard logs,
+- epoch_<N>/epoch_data.json: per-epoch train/val metrics.
+
+Global index:
+- runs_unet/experiments_index.csv is appended after each training run (one row per run).

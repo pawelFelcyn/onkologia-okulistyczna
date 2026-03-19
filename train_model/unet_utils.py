@@ -183,10 +183,17 @@ class UNet(nn.Module):
     def get_encoder_blocks(self):
         return [self.conv1, self.conv2, self.conv3, self.conv4, self.conv5]
 
-    def __get_run_dir(self):
+    def __get_run_dir(self, run_name=None):
         base_dir = "runs_unet"
         prefix = "run"
         os.makedirs(base_dir, exist_ok=True)
+        if run_name:
+            candidate = os.path.join(base_dir, run_name)
+            if os.path.exists(candidate):
+                raise FileExistsError(
+                    f"Run directory already exists: {candidate}. Choose a different --run_name or resume explicitly."
+                )
+            return candidate
         i = 1
         while True:
             candidate = os.path.join(base_dir, f"{prefix}{i}")
@@ -200,16 +207,23 @@ class UNet(nn.Module):
                     num_epochs=20,
                     lr=1e-4,
                     device=None,
-                    freeze_encoder=False):
+                    freeze_encoder=False,
+                    run_name=None,
+                    run_meta=None):
 
         if device is None:
             device = torch.device(
                 "cuda" if torch.cuda.is_available() else "cpu")
 
-        run_dir = self.__get_run_dir()
+        run_dir = self.__get_run_dir(run_name=run_name)
         os.makedirs(run_dir, exist_ok=True)
         weights_dir = os.path.join(run_dir, "weights")
         os.makedirs(weights_dir, exist_ok=True)
+
+        if run_meta is not None:
+            with open(os.path.join(run_dir, "run_meta.json"), "w") as f:
+                json.dump(run_meta, f, indent=2)
+
         self.to(device)
 
         writer = SummaryWriter(log_dir=os.path.join(run_dir, "tensorboard"))
@@ -337,7 +351,13 @@ class UNet(nn.Module):
             f"\nTraining complete. Best val Dice (macro): {best_val_dice:.4f} | "
             f"Best tumor Dice: {best_tumor_dice:.4f} | Best fluid Dice: {best_fluid_dice:.4f}"
         )
-        return weights_dir
+        return {
+            "run_dir": run_dir,
+            "weights_dir": weights_dir,
+            "best_val_dice": float(best_val_dice),
+            "best_tumor_dice": float(best_tumor_dice),
+            "best_fluid_dice": float(best_fluid_dice),
+        }
 
     def __get_test_run_dir(self):
         base_dir = "runs_unet"
