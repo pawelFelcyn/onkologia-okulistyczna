@@ -8,10 +8,20 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mem=16G
 
+# Usage:
+#   sbatch train_unet_tensorboard.sh 13
+#   sbatch --job-name=train_unet_model_s13 train_unet_tensorboard.sh 13
+
+set -euo pipefail
+
+SEED=${1:-42}
+
 module load anaconda
 conda activate nn_train
 pip install "tensorboard>=2.14"
 cd /projects/onkokul/onkologia-okulistyczna || exit -1
+
+echo "[INFO] Baseline UNet training | seed=${SEED}"
 
 srun python train_model/train_unet.py \
   --train_csv Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct/train.csv \
@@ -19,5 +29,5 @@ srun python train_model/train_unet.py \
   --epochs    50 \
   --imgsz     512 \
   --batch     8 \
-  --seed      42 \
-  --save_path models/unet/baseline_scratch_seed42.pth
+  --seed      "${SEED}" \
+  --save_path "models/unet/baseline_scratch_seed${SEED}.pth"
