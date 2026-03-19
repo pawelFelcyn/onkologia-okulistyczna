@@ -223,7 +223,9 @@ class UNet(nn.Module):
             trainable_count = sum(p.numel() for p in trainable_parameters)
             print(f"[INFO] Training decoder/head only. Trainable parameters: {trainable_count:,}")
 
-        best_val_dice = 0.0
+        best_val_dice = -1.0
+        best_tumor_dice = -1.0
+        best_fluid_dice = -1.0
 
         for epoch in range(1, num_epochs + 1):
             print(f"\nEpoch {epoch}/{num_epochs}")
@@ -316,8 +318,25 @@ class UNet(nn.Module):
                 print(
                     f"✓ saved best.pth  (val_dice_macro={best_val_dice:.4f})")
 
+            if tumor_m['dice'] > best_tumor_dice:
+                best_tumor_dice = tumor_m['dice']
+                torch.save(self.state_dict(), os.path.join(
+                    weights_dir, 'best_tumor.pth'))
+                print(
+                    f"✓ saved best_tumor.pth  (val_tumor_dice={best_tumor_dice:.4f})")
+
+            if fluid_m['dice'] > best_fluid_dice:
+                best_fluid_dice = fluid_m['dice']
+                torch.save(self.state_dict(), os.path.join(
+                    weights_dir, 'best_fluid.pth'))
+                print(
+                    f"✓ saved best_fluid.pth  (val_fluid_dice={best_fluid_dice:.4f})")
+
         writer.close()
-        print(f"\nTraining complete. Best val Dice (macro): {best_val_dice:.4f}")
+        print(
+            f"\nTraining complete. Best val Dice (macro): {best_val_dice:.4f} | "
+            f"Best tumor Dice: {best_tumor_dice:.4f} | Best fluid Dice: {best_fluid_dice:.4f}"
+        )
         return weights_dir
 
     def __get_test_run_dir(self):
