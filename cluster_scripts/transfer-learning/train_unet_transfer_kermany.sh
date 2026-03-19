@@ -30,6 +30,7 @@ srun python train_model/train_unet.py \
   --epochs    50 \
   --imgsz     512 \
   --batch     8 \
+  --approach  transfer \
   --seed      "${SEED}" \
   --save_path "models/unet/kermany_transfer_seed${SEED}.pth" \
   --encoder_weights "${ENCODER_WEIGHTS}"

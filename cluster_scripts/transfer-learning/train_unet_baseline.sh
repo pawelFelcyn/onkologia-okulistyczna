@@ -9,8 +9,8 @@
 #SBATCH --mem=16G
 
 # Usage:
-#   sbatch train_unet_tensorboard.sh 13
-#   sbatch --job-name=train_unet_model_s13 train_unet_tensorboard.sh 13
+#   sbatch train_unet_baseline.sh 13
+#   sbatch --job-name=train_unet_model_s13 train_unet_baseline.sh 13
 
 set -euo pipefail
 
@@ -29,5 +29,6 @@ srun python train_model/train_unet.py \
   --epochs    50 \
   --imgsz     512 \
   --batch     8 \
+  --approach  baseline \
   --seed      "${SEED}" \
   --save_path "models/unet/baseline_scratch_seed${SEED}.pth"
