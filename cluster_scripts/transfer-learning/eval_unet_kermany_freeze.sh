@@ -8,11 +8,20 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mem=8G
 
+# Usage:
+#   sbatch eval_unet_kermany_freeze.sh 13
+
+set -euo pipefail
+
+SEED=${1:-42}
+
 module load anaconda
 conda activate nn_train
 cd /projects/onkokul/onkologia-okulistyczna || exit -1
 
-MODEL_PATH="models/unet/kermany_transfer_frozen_seed42.pth"
+MODEL_PATH="models/unet/kermany_transfer_frozen_seed${SEED}.pth"
+
+echo "[INFO] Evaluating Kermany transfer + freeze UNet | seed=${SEED} | model=${MODEL_PATH}"
 
 srun python train_model/test_unet.py \
   --split         Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct \
