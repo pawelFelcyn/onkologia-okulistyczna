@@ -14,9 +14,9 @@ For this thesis workflow, we use 3 seeds:
 - 42
 - 123
 
-## How To Run Scripts (Seed As Argument)
-Scripts in cluster_scripts/transfer-learning/ accept seed as the first argument.
-If no seed is provided, default is 42.
+## How To Run Scripts (Arguments)
+Scripts in cluster_scripts/transfer-learning/ accept run seed as the first argument.
+If no run seed is provided, default is 42.
 
 ### Kermany Pretraining (Encoder)
 - Train: sbatch cluster_scripts/transfer-learning/train_kermany.sh 13
@@ -34,15 +34,32 @@ Saved model path:
 ### UNet Transfer (Kermany)
 - sbatch cluster_scripts/transfer-learning/train_unet_transfer_kermany.sh 13
 
-By default, encoder weights are loaded from runs_kermany_seed<SEED>.
-You can override encoder path with argument 2:
-- sbatch cluster_scripts/transfer-learning/train_unet_transfer_kermany.sh 13 train_model/transfer_learning/runs_kermany_seed42/encoder_kermany_pretrained.pth
+Arguments:
+- arg1: run seed (for current UNet training run),
+- arg2: Kermany seed used to select pretrained encoder weights (default 42),
+- arg3: explicit encoder weights path (optional, overrides arg2-derived path).
+
+By default, encoder weights are loaded from runs_kermany_seed<ARG2_OR_42>.
+
+Examples:
+- use run seed 13 and Kermany weights from seed 42:
+	sbatch cluster_scripts/transfer-learning/train_unet_transfer_kermany.sh 13 42
+- override encoder path explicitly:
+	sbatch cluster_scripts/transfer-learning/train_unet_transfer_kermany.sh 13 42 train_model/transfer_learning/runs_kermany_seed42/encoder_kermany_pretrained.pth
 
 Saved model path:
 - models/unet/kermany_transfer_seed<SEED>.pth
 
 ### UNet Transfer + Frozen Encoder
 - sbatch cluster_scripts/transfer-learning/train_unet_transfer_kermany_freeze.sh 13
+
+Arguments are the same as in UNet Transfer:
+- arg1: run seed,
+- arg2: Kermany seed for encoder weights (default 42),
+- arg3: optional explicit encoder weights path.
+
+Example:
+- sbatch cluster_scripts/transfer-learning/train_unet_transfer_kermany_freeze.sh 13 42
 
 Saved model path:
 - models/unet/kermany_transfer_frozen_seed<SEED>.pth
