@@ -8,6 +8,48 @@ import albumentations as A
 COMBOS = ['nothing', 'fluid_only', 'tumor_only', 'both']
 TARGET_PER_COMBO = 1250
 
+def get_all_oct_image_augmentations(original_image_path: str):
+    import os
+    import json
+
+    potential_augmnentations = os.path.dirname(
+        original_image_path
+        .replace('raw', 'processed')
+        .replace('OCT', 'OCT_augmented')
+        .replace('original_images', 'metadata')
+    )
+
+    result = []
+    max_potential = 0
+
+    if not os.path.isdir(potential_augmnentations):
+        return result, 0
+
+    for potential in os.listdir(potential_augmnentations):
+        full_path = os.path.join(potential_augmnentations, potential)
+
+        name = os.path.splitext(potential)[0]
+        if name.isdigit():
+            max_potential = max(max_potential, int(name))
+
+        with open(full_path) as f:
+            meta = json.load(f)
+
+        raw_source = meta['raw_source']
+        orig_raw_source = original_image_path.replace('Ophthalmic_Scans\\', '')
+
+        if raw_source == orig_raw_source:
+            image_path = full_path.replace('metadata', 'resized_images').replace('.json', '.png')
+            tumor_mask_path = full_path.replace('metadata', 'masks/tumor').replace('.json', '.png')
+            fluid_mask_path = full_path.replace('metadata', 'masks/fluid').replace('.json', '.png')
+            label_path = full_path.replace('metadata', 'labels').replace('.json', '.txt')
+
+            result.append(
+                (image_path, label_path, tumor_mask_path, fluid_mask_path)
+            )
+
+    return result, max_potential
+
 def augment_image(resized_image_path, fluid_mask_path, tumor_mask_path):
     transform = _make_transform({
         'mask1': 'mask',
