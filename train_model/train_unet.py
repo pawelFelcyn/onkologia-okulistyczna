@@ -63,7 +63,7 @@ def get_last_run_model() -> tuple[str, int, str]:
         raise FileNotFoundError("No runs_unet directory found — nothing to resume.")
 
     runs = sorted(
-        [p for p in unet_runs.iterdir() if p.is_dir() and not p.name.startswith("test_run")],
+        [p for p in unet_runs.iterdir() if p.is_dir() and not p.name.startswith(("test_run", "unet_eval"))],
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
@@ -106,7 +106,7 @@ def infer_approach(encoder_weights: str | None, freeze_encoder: bool) -> str:
 def make_run_name(approach: str, seed: int, imgsz: int, batch: int, started_at: datetime) -> str:
     safe_approach = re.sub(r"[^a-zA-Z0-9_-]+", "-", approach.strip()).strip("-") or "unknown"
     stamp = started_at.strftime("%Y%m%d-%H%M%S")
-    return f"{stamp}__unet_{safe_approach}__seed{seed}__img{imgsz}__bs{batch}"
+    return f"unet_{safe_approach}__seed{seed}__img{imgsz}__bs{batch}__{stamp}"
 
 
 def get_git_commit_short() -> str:

@@ -9,10 +9,18 @@ Use this setup:
 - report mean +- std across seeds.
 
 ## Seed Set Used In This Project
-For this thesis workflow, we use 3 seeds:
+For this thesis workflow, we use 10 seeds:
 - 13
 - 42
 - 123
+- 73
+- 99
+- 7
+- 19
+- 271
+- 1009
+- 2027
+
 
 ## How To Run Scripts (Arguments)
 Scripts in cluster_scripts/transfer-learning/ accept run seed as the first argument.

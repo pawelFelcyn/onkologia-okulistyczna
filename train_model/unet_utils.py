@@ -359,10 +359,22 @@ class UNet(nn.Module):
             "best_fluid_dice": float(best_fluid_dice),
         }
 
-    def __get_test_run_dir(self):
+    def __get_test_run_dir(self, run_name: str | None = None):
         base_dir = "runs_unet"
-        prefix = "test_run"
         os.makedirs(base_dir, exist_ok=True)
+
+        if run_name:
+            safe_name = os.path.basename(run_name)
+            if safe_name != run_name:
+                raise ValueError(f"Invalid run_name (must be a folder name, not a path): {run_name}")
+            candidate = os.path.join(base_dir, safe_name)
+            if os.path.exists(candidate):
+                raise FileExistsError(
+                    f"Test run directory already exists: {candidate}. Choose a different run_name."
+                )
+            return candidate
+
+        prefix = "test_run"
         i = 1
         while True:
             candidate = os.path.join(base_dir, f"{prefix}{i}")
@@ -378,12 +390,12 @@ class UNet(nn.Module):
             "FN": int(cn[1][0])
         }
 
-    def test_model(self, test_loader, device=None):
+    def test_model(self, test_loader, device=None, run_name: str | None = None):
         if device is None:
             device = torch.device(
                 "cuda" if torch.cuda.is_available() else "cpu")
 
-        test_results_dir = self.__get_test_run_dir()
+        test_results_dir = self.__get_test_run_dir(run_name=run_name)
         os.makedirs(test_results_dir, exist_ok=True)
 
         self.to(device)
