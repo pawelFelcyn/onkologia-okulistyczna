@@ -1,8 +1,10 @@
 from ultralytics import YOLO
+from ultralytics.utils.metrics import SegmentMetrics
 import argparse
 from utils import make_yolo_split
 from dotenv import load_dotenv
 import os
+import json
 
 load_dotenv(dotenv_path='train_model/.env')
 
@@ -10,10 +12,14 @@ def main(test_csv: str, model_to_test: str) -> None:
     make_yolo_split(test_csv, "test")
     
     model = YOLO(model_to_test)
-    model.val(
+    metrics: SegmentMetrics = model.val(
         data="data.yaml",
         split="test",
     )
+    metrics_json = metrics.to_json()
+    
+    with open("metrics.json", "w") as f:
+        json.dump(metrics_json, f)
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test YOLO model from CSV splits with explicit labels.")
