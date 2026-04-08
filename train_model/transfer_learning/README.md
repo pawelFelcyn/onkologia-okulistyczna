@@ -164,18 +164,32 @@ The script accepts both a **full model checkpoint** and an **encoder-only checkp
 
 ## Stage B – Transfer encoder to U-Net
 
-After pretraining, load the encoder weights into your segmentation U-Net:
+After pretraining, use the encoder weights in segmentation training via `train_unet.py`.
 
-```python
-from train_model.unet_utils import UNet
+Current project flow loads Kermany encoder weights with:
+- `--encoder_weights <path_to_encoder_checkpoint>`
+- `model.load_state_dict(state, strict=False)` inside `train_model/train_unet.py`
 
-model = UNet(in_channels=3, out_channels=2)
-model.encoder.load_state_dict(
-    torch.load("runs_kermany/encoder_kermany_pretrained.pth")
-)
+This initializes matching encoder blocks (`conv1`-`conv5`) from the pretrained checkpoint, while decoder/output layers remain randomly initialized and are trained on segmentation data.
+
+Example command:
+
+```bash
+python train_model/train_unet.py \
+    --train_csv Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct/train.csv \
+    --val_csv   Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct/val.csv \
+    --epochs    50 \
+    --imgsz     512 \
+    --batch     8 \
+    --approach  transfer \
+    --seed      42 \
+    --save_path models/unet/kermany_transfer_seed42.pth \
+    --encoder_weights train_model/transfer_learning/runs_kermany_seed42/encoder_kermany_pretrained.pth
 ```
 
-The encoder architecture (`double_conv` blocks, `base=64`) is identical to `UNet` in `unet_utils.py`, so the weights transfer directly without any shape mismatch.
+If you want transfer learning with a frozen encoder, add `--freeze_encoder`.
+
+The encoder architecture (`double_conv` blocks, `base=64`) is aligned between Kermany pretraining and `UNet` in `train_model/unet_utils.py`, so matching weights are loaded automatically.
 
 ---
 
