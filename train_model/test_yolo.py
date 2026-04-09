@@ -10,6 +10,8 @@ load_dotenv(dotenv_path='train_model/.env')
 
 def main(test_csv: str, model_to_test: str) -> None:
     make_yolo_split(test_csv, "test")
+    make_yolo_split(test_csv, "train")
+    make_yolo_split(test_csv, "val")
     
     model = YOLO(model_to_test)
     metrics: SegmentMetrics = model.val(
