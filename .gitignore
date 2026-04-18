@@ -8,6 +8,8 @@ runs_unet/
 old_images/
 llm_eval_outputs/
 .env
+deepeval_evaluation_results/
+.deepeval/
 .vscode/
 
 # Byte-compiled / optimized / DLL files
