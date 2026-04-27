@@ -1,13 +1,21 @@
+from enum import Enum
 from io import BytesIO
-from fastapi import FastAPI, File, UploadFile
-from PIL import Image
-from ultralytics import YOLO
-from fastapi.middleware.cors import CORSMiddleware
 
-model = YOLO(r"models/yolo-weights.pt")
+from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from PIL import Image
+
+from inference_service import (
+    InferenceService,
+    MissingDependencyError,
+    ModelUnavailableError,
+)
+
+
 app = FastAPI()
+
 origins = [
-    "http://localhost:5173"
+    "http://localhost:5173",
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -18,34 +26,29 @@ app.add_middleware(
 )
 
 
+class ModelEnum(str, Enum):
+    YOLO = "yolo"
+    UNET = "unet"
+
+
+inference_service = InferenceService()
+
+
 @app.post("/inference")
-async def infer(file: UploadFile = File(...)):
+async def infer(file: UploadFile = File(...), model: ModelEnum = Form(ModelEnum.YOLO)):
     img_bytes = await file.read()
-    # img = Image.open(BytesIO(img_bytes)).convert(
-    # "RGB")  # Ensure 3 channels for YOLO
-    img = Image.open(BytesIO(img_bytes))
+    pil_img = Image.open(BytesIO(img_bytes)).convert("RGB")
 
-    results = model(img)
-    r = results[0]
-
-    detections = []
-    for i in range(len(r.boxes)):
-        det = {
-            "class": r.names[int(r.boxes[i].cls)],
-            "conf": float(r.boxes[i].conf),
-            "box": r.boxes[i].xyxy[0].tolist(),
-        }
-        # Add mask coordinates if available
-        if r.masks is not None:
-            det["segments"] = r.masks.xyn[i].tolist()  # Normalized coordinates
-
-        detections.append(det)
-
-    return {"detections": detections}
-
-
-def run_inference(img):
-    return model(img)
+    try:
+        result = inference_service.infer(model.value, pil_img)
+        return {"detections": result.detections}
+    except ModelUnavailableError as e:
+        return {"detections": [], "error": str(e)}
+    except MissingDependencyError as e:
+        return {"detections": [], "error": str(e)}
+    except Exception as e:
+        print(f"[WARN] Inference failed: {e}")
+        return {"detections": [], "error": "Inference failed"}
 
 
 @app.post("/volume")
@@ -55,7 +58,8 @@ async def calculcate_volume(files: list[UploadFile] = File(...)):
         img_bytes = await file.read()
         img = Image.open(BytesIO(img_bytes))
         images.append(img)
-    import random
-    volume = random.uniform(1, 16)
 
+    import random
+
+    volume = random.uniform(1, 16)
     return {"volume": volume}
