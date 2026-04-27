@@ -5,7 +5,7 @@ from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 
-from inference_service import (
+from inference_service import ( 
     InferenceService,
     MissingDependencyError,
     ModelUnavailableError,
