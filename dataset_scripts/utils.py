@@ -1,6 +1,6 @@
 import os
 
-def get_all_labeled_images() -> list[tuple[str, str, str]]:
+def get_all_labeled_images() -> list[tuple[str, str, str, str, str]]:
     ret = []
     root = os.path.join('Ophthalmic_Scans', 'raw')
     
@@ -88,7 +88,28 @@ def get_all_resized_images(root: str = 'raw'):
     return results
 
 if __name__ == '__main__':
+    import tqdm
     c = get_all_labeled_images()
     print("Found {} labeled images.".format(len(c)))
     c2 = get_all_not_labeled_oct_scans()
     print("Found {} not labeled oct scans.".format(len(c2)))
+    nothing = 0
+    tumor_only = 0
+    fluid_only = 0
+    tumor_and_fluid = 0
+    for tpl in tqdm.tqdm(c):
+        label_txt = tpl[2]
+        with open(label_txt, "r", encoding="utf-8") as f:
+            content = f.readlines()
+            if len(content) == 0:
+                nothing += 1
+                continue
+            has_tumor = any([x for x in content if x.startswith('1')])
+            has_fluid = any([x for x in content if x.startswith('0')])
+            if has_tumor and has_fluid:
+                tumor_and_fluid += 1
+            elif has_tumor:
+                tumor_only += 1
+            elif has_fluid:
+                fluid_only += 1
+    print(f"Nothing: {nothing}, Tumor only: {tumor_only}, Fluid only: {fluid_only}, Tumor and fluid: {tumor_and_fluid}")
