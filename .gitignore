@@ -11,6 +11,7 @@ llm_eval_outputs/
 deepeval_evaluation_results/
 .deepeval/
 .vscode/
+.env.local
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

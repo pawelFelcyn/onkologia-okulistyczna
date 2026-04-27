@@ -1,7 +1,16 @@
 import os
 import pandas as pd
 
-split_path = os.path.join("Ophthalmic_Scans", "splits", "tumor_and_fluid_segmentation_oct")
+split_path = os.path.join("Ophthalmic_Scans", "splits", "tumor_and_fluid_segmentation_oct2")
+
+
+def extract_patient_and_session(path: str) -> tuple[str, str]:
+    patient_id = next((part for part in path.split('/') if part.startswith('sub-')), None)
+    session_id = next((part for part in path.split('/') if part.startswith('ses-')), None)
+    if patient_id is None or session_id is None:
+        raise ValueError(f"Could not extract patient/session from path: {path}")
+    return patient_id, session_id
+
 
 def print_split_details(split: str):
     path = os.path.join(split_path, f"{split}.csv")
@@ -12,7 +21,12 @@ def print_split_details(split: str):
     tumor_and_fluid = 0
     no_tumor_and_fluid = 0
     augmented = 0
+    unique_patients = set()
+    unique_studies = set()
     for _, row in df.iterrows():
+        patient_id, session_id = extract_patient_and_session(row['label_path'])
+        unique_patients.add(patient_id)
+        unique_studies.add((patient_id, session_id))
         label_path = os.path.join('Ophthalmic_Scans', row['label_path'])
         if 'augmented' in label_path:
             augmented += 1
@@ -35,6 +49,8 @@ def print_split_details(split: str):
     print(f"No tumor and fluid: {no_tumor_and_fluid}")
     print(f"Total: {tumor_only + fluid_only + tumor_and_fluid + no_tumor_and_fluid}")
     print(f"Augmented: {augmented}")
+    print(f"Unique patients: {len(unique_patients)}")
+    print(f"Unique studies: {len(unique_studies)}")
 
 print_split_details("train")
 print_split_details("val")
