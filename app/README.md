@@ -24,6 +24,17 @@ This application is a clinical tool prototype for analyzing Ophthalmic Computed 
 
 ## How to Run
 
+### Model weights (required)
+
+For the application to work, the backend must have a models/ directory with the following files:
+
+- backend/models/yolo-weights.pt (required; backend will fail to start without it)
+- backend/models/unet.pth (required only if you want to use U-Net; if missing, selecting U-Net will return “model unavailable”)
+
+If you want to use different filenames/paths, update the defaults in
+[app/backend/inference_service.py](http://_vscodecontentref_/3) (and how it’s instantiated in
+[app/backend/main.py](http://_vscodecontentref_/4)).
+
 ### 1. Run Everything with Docker Compose
 
 Prerequisites:
