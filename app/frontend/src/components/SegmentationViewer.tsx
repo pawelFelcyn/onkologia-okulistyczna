@@ -14,41 +14,44 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sliderRef = useRef<HTMLDivElement>(null);
+  const isDraggingSliderRef = useRef(false);
 
   const [showOverlay, setShowOverlay] = useState(true);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [isLoadingYOLO, setIsLoadingYOLO] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [sliderPosition, setSliderPosition] = useState(50);
   const [detections, setDetections] = useState<Detection[]>([]);
   const [viewMode, setViewMode] = useState<"comparison" | "analysis">(
     "comparison",
   );
+  const [selectedModel, setSelectedModel] = useState<"yolo" | "unet">("yolo");
 
   useEffect(() => {
-    const fetchYOLOSegmentation = async () => {
-      setIsLoadingYOLO(true);
+    const fetchSegmentation = async () => {
+      setIsLoading(true);
       try {
         const response = await fetch(imageUrl);
         const blob = await response.blob();
         const formData = new FormData();
         formData.append("file", blob);
+        formData.append("model", selectedModel);
 
-        const yoloResponse = await fetch("http://localhost:8000/inference", {
+        const inferenceResponse = await fetch("http://localhost:8000/inference", {
           method: "POST",
           body: formData,
         });
 
-        const data = await yoloResponse.json();
+        const data = await inferenceResponse.json();
         setDetections(data.detections || []);
       } catch (error) {
         console.error("API Error:", error);
         setDetections([]);
       } finally {
-        setIsLoadingYOLO(false);
+        setIsLoading(false);
       }
     };
-    fetchYOLOSegmentation();
-  }, [imageUrl]);
+    fetchSegmentation();
+  }, [imageUrl, selectedModel]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -88,26 +91,34 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
       setImageLoaded(true);
     };
 
-    const handleMove = (e: MouseEvent) => {
-      if (!sliderRef.current || e.buttons === 0) return;
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      setSliderPosition(Math.max(0, Math.min(100, (x / rect.width) * 100)));
-    };
-
-    const handleTouch = (e: TouchEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.touches[0].clientX - rect.left;
-      setSliderPosition(Math.max(0, Math.min(100, (x / rect.width) * 100)));
-    };
-
-    document.addEventListener("mousemove", handleMove);
-    document.addEventListener("touchmove", handleTouch);
-    return () => {
-      document.removeEventListener("mousemove", handleMove);
-      document.removeEventListener("touchmove", handleTouch);
-    };
   }, [imageUrl, showOverlay, sliderPosition, detections, viewMode]);
+
+  const updateSliderPosition = (clientX: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0) return;
+
+    const x = clientX - rect.left;
+    setSliderPosition(Math.max(0, Math.min(100, (x / rect.width) * 100)));
+  };
+
+  const handleSliderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    isDraggingSliderRef.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    updateSliderPosition(e.clientX);
+  };
+
+  const handleSliderPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingSliderRef.current) return;
+    updateSliderPosition(e.clientX);
+  };
+
+  const handleSliderPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    isDraggingSliderRef.current = false;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
 
   const drawSegmentation = (
     ctx: CanvasRenderingContext2D,
@@ -174,9 +185,14 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
               <h2 className="text-xl font-bold tracking-tight">
                 AI Segmentation
               </h2>
-              <p className="text-xs text-white/40 uppercase tracking-widest font-mono">
-                Yolov8
-              </p>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value as "yolo" | "unet")}
+                className="text-xs text-white/40 uppercase tracking-widest font-mono bg-transparent border border-white/10 rounded px-2 py-1 cursor-pointer hover:border-white/30 transition-colors"
+              >
+                <option value="yolo" className="bg-black text-white hover:bg-accent hover:text-black">Yolov8</option>
+                <option value="unet" className="bg-black text-white hover:bg-accent hover:text-black">UNet</option>
+              </select>
             </div>
           </div>
 
@@ -238,11 +254,14 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
             <canvas ref={canvasRef} className="block cursor-crosshair" />
 
             {viewMode === "comparison" &&
-              !isLoadingYOLO &&
               detections.length > 0 && (
                 <div
                   ref={sliderRef}
                   className="absolute inset-0 cursor-col-resize"
+                  onPointerDown={handleSliderPointerDown}
+                  onPointerMove={handleSliderPointerMove}
+                  onPointerUp={handleSliderPointerUp}
+                  onPointerCancel={handleSliderPointerUp}
                 >
                   <div
                     className="
@@ -317,7 +336,7 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-          {isLoadingYOLO ? (
+          {isLoading ? (
             <div className="flex flex-col items-center justify-center h-40 opacity-40">
               <Loader className="animate-spin mb-4" />
               <p className="text-sm font-medium">Processing scan...</p>

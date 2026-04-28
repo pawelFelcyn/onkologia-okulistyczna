@@ -1,2 +1,5 @@
-from subprocess import check_output
-check_output("uvicorn main:app", shell=True)
+import subprocess
+import sys
+
+
+subprocess.run([sys.executable, "-m", "uvicorn", "main:app"], check=True)
