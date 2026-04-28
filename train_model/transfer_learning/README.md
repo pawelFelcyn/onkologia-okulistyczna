@@ -1,5 +1,130 @@
 # Transfer Learning – Kermany OCT Encoder Pretraining
 
+## Replicating the Experiment
+
+This experiment is compute-heavy (PyTorch + GPU). The recommended way to replicate results is to use the WMI UAM cluster.
+
+### Option A (Recommended): WMI UAM Cluster (SLURM)
+
+Cluster entry point: https://cluster.wmi.amu.edu.pl/
+
+1. SSH to the cluster and go to the project directory.
+    ```bash
+    cd /projects/onkokul/onkologia-okulistyczna
+    ```
+2. Make sure required datasets are available:
+    - **Kermany OCT 2018** prepared at `train_model/transfer_learning/OCT2018` (see Option B for download steps).
+    - **Ophthalmic_Scans** pulled via DVC as described in the project root README: [README.md](../../README.md)
+3. Submit jobs using the provided SLURM scripts in [cluster_scripts/transfer-learning/](../../cluster_scripts/transfer-learning/).
+
+Example commands (run from the repository root on the cluster):
+
+```bash
+# Kermany encoder pretraining
+sbatch cluster_scripts/transfer-learning/train_kermany.sh 42
+sbatch cluster_scripts/transfer-learning/eval_kermany.sh 42
+
+# UNet baseline (scratch)
+sbatch cluster_scripts/transfer-learning/train_unet_baseline.sh 42
+
+# UNet transfer (uses encoder weights from Kermany seed 42 by default)
+sbatch cluster_scripts/transfer-learning/train_unet_transfer_kermany.sh 13 42
+sbatch cluster_scripts/transfer-learning/eval_unet_kermany.sh 13
+
+# Optional: transfer with frozen encoder
+sbatch cluster_scripts/transfer-learning/train_unet_transfer_kermany_freeze.sh 13 42
+sbatch cluster_scripts/transfer-learning/eval_unet_kermany_freeze.sh 13
+```
+
+Expected outputs (default paths used by the scripts):
+
+- Kermany encoder checkpoint (Stage A):
+    - `train_model/transfer_learning/runs_kermany_seed<SEED>/encoder_kermany_pretrained.pth`
+- Kermany evaluation results (what was reported):
+    - `train_model/transfer_learning/runs_kermany_seed<SEED>/eval_results.json`
+- U-Net checkpoints (Stage B):
+    - Baseline (scratch): `models/unet/baseline_scratch_seed<SEED>.pth`
+    - Transfer: `models/unet/kermany_transfer_seed<SEED>.pth`
+    - Transfer + frozen encoder: `models/unet/kermany_transfer_frozen_seed<SEED>.pth`
+- U-Net evaluation results (written by `train_model/test_unet.py`):
+    - Directory: `runs_unet/unet_eval__model<MODEL>__split<SPLIT>__img<IMG>__bs<BATCH>__<UTC_TIMESTAMP>/`
+    - Files inside:
+        - `fluid_metrics.json`, `tumor_metrics.json`
+        - `fluid_cm.json`, `tumor_cm.json`
+
+Seeds and how runs are organized:
+- [cluster_scripts/transfer-learning/SEEDS_AND_RUNS.md](../../cluster_scripts/transfer-learning/SEEDS_AND_RUNS.md)
+
+Notes:
+- The scripts assume `conda activate nn_train` and that the repo exists at `/projects/onkokul/onkologia-okulistyczna`. If your paths/env differ, adjust the `cd ...` and env activation lines inside the scripts.
+
+### Option B: Local Replication (Manual)
+
+This path is slower and more error-prone (large downloads + GPU drivers), but it is possible.
+
+1. Get the ophthalmic dataset using DVC as described in the project root README: [README.md](../../README.md)
+2. Install Python dependencies (minimal set for this subproject):
+
+```bash
+pip install torch torchvision torchmetrics tensorboard tqdm kagglehub kaggle
+```
+
+3. Download and prepare the Kermany dataset (requires Kaggle access):
+
+```bash
+cd train_model/transfer_learning
+python prepare_kermany.py --download --data_dir ./OCT2018
+```
+
+4. Train the encoder on Kermany:
+
+```bash
+python train_kermany.py \
+    --data_dir   ./OCT2018 \
+    --epochs     25 \
+    --batch_size 8 \
+    --seed       42 \
+    --output_dir ./runs_kermany
+```
+
+5. Evaluate on the Kermany test split:
+
+```bash
+python eval_kermany.py \
+    --weights    ./runs_kermany/encoder_kermany_pretrained.pth \
+    --data_dir   ./OCT2018 \
+    --output_dir ./runs_kermany
+```
+
+Artifacts: `./runs_kermany/eval_results.json` (relative to `train_model/transfer_learning`).
+
+6. Stage B: run U-Net segmentation training with transfer learning (from repo root):
+
+```bash
+python train_model/train_unet.py \
+    --train_csv Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct/train.csv \
+    --val_csv   Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct/val.csv \
+    --epochs    50 \
+    --imgsz     512 \
+    --batch     8 \
+    --approach  transfer \
+    --seed      42 \
+    --save_path models/unet/kermany_transfer_seed42.pth \
+    --encoder_weights train_model/transfer_learning/runs_kermany/encoder_kermany_pretrained.pth
+```
+
+7. Evaluate the trained U-Net on the Ophthalmic_Scans test split (from repo root):
+
+```bash
+python train_model/test_unet.py \
+    --split         Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct \
+    --model_to_test models/unet/kermany_transfer_seed42.pth \
+    --imgsz         512 \
+    --batch         8
+```
+
+Evaluation artifacts are saved automatically to `runs_unet/unet_eval__.../` (see “Expected outputs” above).
+
 ## Goal
 
 Pretrain a **U-Net encoder** on the [Kermany OCT 2018](https://www.kaggle.com/datasets/paultimothymooney/kermany2018) classification dataset before using it for retinal layer segmentation.
