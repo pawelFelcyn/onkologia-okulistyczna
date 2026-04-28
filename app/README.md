@@ -1,62 +1,68 @@
 # AI Eye - OCT Scan Analysis Demo
 
-This application is a clinical tool prototype for analyzing Ophthalmic Computed Tomography (OCT) scans. It features automated tumor segmentation using YOLOv8 and volumetric estimation for scan sequences.
+This application is a clinical tool prototype for analyzing Ophthalmic Computed Tomography (OCT) scans. It features automated tumor segmentation (model can be selected: YOLOv8 or U-Net) and volumetric estimation for scan sequences.
 
-## 🛠 Technologies Used
+## Technologies Used
 
 ### Backend
-*   **Python 3.12**
-*   **FastAPI 0.128.0**: High-performance web framework for the API.
-*   **Ultralytics 8.4.6**: Used for YOLOv8 computer vision tasks (segmentation).
-*   **Uvicorn 0.40.0**: ASGI server for running the FastAPI application.
-*   **Pillow 12.1.0**: Image processing library.
-*   **Pydantic 2.12.5**: Data validation and settings management.
+*   Python
+*   FastAPI
+*   Ultralytics (YOLOv8)
+*   Uvicorn
+*   Pillow
+*   Pydantic
 
 ### Frontend
-*   **React 19.2.0**: UI library.
-*   **TypeScript 5.9.3**: Static typing for enhanced developer experience.
-*   **Vite 7.2.4**: Modern frontend build tool and dev server.
-*   **TailwindCSS 4.1.18**: Utility-first CSS framework for styling.
-*   **Lucide React 0.562.0**: Icon library.
-*   **Canvas API**: Used for rendering clinical masks and overlays on OCT scans.
+*   React
+*   TypeScript
+*   Vite
+*   TailwindCSS
+*   Lucide React
+*   Canvas API
 
 ---
 
-## 🚀 How to Run
+## How to Run
 
-### Prerequisites
+### 1. Run Everything with Docker Compose
+
+Prerequisites:
+*   [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+From the `app/` directory:
+
+```bash
+docker compose up --build
+```
+
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+
+### 2. Manual Setup (Backend + Frontend)
+
+Prerequisites:
 *   [Python 3.12+](https://www.python.org/)
 *   [Node.js 20+](https://nodejs.org/)
-*   [uv](https://docs.astral.sh/uv/) (Recommended for backend management) or `pip`
+*   [uv](https://docs.astral.sh/uv/) (recommended) or `pip`
 
-### 1. Run the Backend
-The backend handles AI inference and volume calculations.
+#### Backend
 
 ```bash
 cd backend
-# Install dependencies
 uv sync  # or: pip install -r pyproject.toml
-
-# Start the server
 python run.py
-# The API will be available at http://localhost:8000
 ```
 
-### 2. Run the Frontend
-The frontend provides the interactive clinical interface.
+#### Frontend
 
 ```bash
 cd frontend
-# Install dependencies
 npm install
-
-# Start the development server
 npm run dev
-# The app will be available at http://localhost:5173
 ```
 
-## 🔍 Features
+## Features
 1.  **Sequence Upload**: Upload multiple OCT scans simultaneously.
-2.  **Tumor Segmentation**: Click "Analyze" on any scan to view real-time AI segmentation masks.
+2.  **Tumor Segmentation (YOLOv8 / U-Net)**: Choose the model and click "Analyze" on any scan to view AI segmentation masks.
 3.  **Volume Estimation**: Select 3 or more scans in a sequence to calculate estimated tumor volume (mm³).
 4.  **Comparison View**: Use the interactive slider to compare raw scans with AI-segmented results.
