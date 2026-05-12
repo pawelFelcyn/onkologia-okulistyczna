@@ -12,6 +12,8 @@ deepeval_evaluation_results/
 .deepeval/
 .vscode/
 .env.local
+evaluation_medgemma/
+evaluation_qwen3/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
