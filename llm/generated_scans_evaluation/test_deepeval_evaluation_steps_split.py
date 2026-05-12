@@ -44,13 +44,28 @@ def get_images_from_dir(directory, valid: bool):
         paths.extend(glob.glob(os.path.join(abs_path, ext)))
     return [(MLLMImage(url=p, local=True), TestCaseMetadata(p, valid)) for p in paths]
 
-def images():
+
+def split_images():
     valid_imgs = get_images_from_dir(VALID_IMAGES_DIR, True)
     invalid_imgs = get_images_from_dir(INVALID_IMAGES_DIR, False)
-    ret = valid_imgs + invalid_imgs
-    random.shuffle(ret)
-    return ret
-    
+
+    random.shuffle(valid_imgs)
+    random.shuffle(invalid_imgs)
+
+    valid_mid = len(valid_imgs) // 2
+    invalid_mid = len(invalid_imgs) // 2
+
+    valid_A, valid_B = valid_imgs[:valid_mid], valid_imgs[valid_mid:]
+    invalid_A, invalid_B = invalid_imgs[:invalid_mid], invalid_imgs[invalid_mid:]
+
+    set_A = valid_A + invalid_A
+    set_B = valid_B + invalid_B
+
+    random.shuffle(set_A)
+    random.shuffle(set_B)
+
+    return set_A, set_B
+
 
 def get_results_df(results: List[TestResult]) -> pd.DataFrame:
     rows = []
@@ -168,26 +183,22 @@ def save_threshold_analysis(df: pd.DataFrame, evaluation_steps: List[str], out_d
 
     with open(os.path.join(out_dir, "evaluation_steps.json"), "w") as f:
         json.dump({"evaluation_steps": evaluation_steps}, f, indent=2)
- 
-def save_evaluation_result(result: EvaluationResult) -> None:
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")[:-3]
-    evaluation_results_dir = os.path.join(
-        "deepeval_evaluation_results",
-        timestamp
-    )
-    os.makedirs(evaluation_results_dir, exist_ok=True)
-    
-    df = get_results_df(result.test_results)
-    df.to_csv(os.path.join(evaluation_results_dir, "evaluation_result.csv"), index=False)
-    save_threshold_analysis(df, BASE_STEPS, evaluation_results_dir)
 
-def test_image_structural_valid(images):
+
+def save_evaluation_result(result: EvaluationResult, out_dir: str) -> None:
+    os.makedirs(out_dir, exist_ok=True)
+    df = get_results_df(result.test_results)
+    df.to_csv(os.path.join(out_dir, "evaluation_result.csv"), index=False)
+    save_threshold_analysis(df, BASE_STEPS, out_dir)
+
+
+def run_evaluation(images, out_dir: str) -> None:
     metric = GEval(
         name="Valid Image Integrity",
         evaluation_params=[LLMTestCaseParams.ACTUAL_OUTPUT],
         evaluation_steps=BASE_STEPS,
         threshold=0.75,
-        rubric= [
+        rubric=[
             Rubric(
                 score_range=(0, 0),
                 expected_outcome="Any structural violation in layer order, shape, or continuity."
@@ -210,8 +221,23 @@ def test_image_structural_valid(images):
     ) for image in images]
 
     result: EvaluationResult = evaluate(test_cases=test_cases, metrics=[metric], async_config=ASYNC_CONFIG)
-    save_evaluation_result(result)
+    save_evaluation_result(result, out_dir)
 
 
 if __name__ == "__main__":
-    test_image_structural_valid(images())
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    base_dir = os.path.join("deepeval_evaluation_results", timestamp)
+
+    set_A, set_B = split_images()
+
+    print(f"Set A: {len(set_A)} images ({sum(1 for _, m in set_A if m.is_valid)} valid, {sum(1 for _, m in set_A if not m.is_valid)} invalid)")
+    print(f"Set B: {len(set_B)} images ({sum(1 for _, m in set_B if m.is_valid)} valid, {sum(1 for _, m in set_B if not m.is_valid)} invalid)")
+    print(f"Results will be saved to: {base_dir}")
+
+    print("\n--- Running evaluation for Set A ---")
+    run_evaluation(set_A, os.path.join(base_dir, "set_A"))
+
+    print("\n--- Running evaluation for Set B ---")
+    run_evaluation(set_B, os.path.join(base_dir, "set_B"))
+
+    print(f"\nDone. Results saved to: {base_dir}")
