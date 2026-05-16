@@ -4,7 +4,6 @@ import os
 import cv2
 import numpy as np
 import pandas as pd
-from utils import make_yolo_split
 from dotenv import load_dotenv
 
 load_dotenv(dotenv_path='train_model/.env')
@@ -73,13 +72,10 @@ def greedy_match(pred_masks, gt_masks, threshold):
     for iou, pi, gi in pairs:
         if pi in matched_pred or gi in matched_gt:
             continue
-        matched_pred.add(pi)
-        matched_gt.add(gi)
         if iou >= threshold:
+            matched_pred.add(pi)
+            matched_gt.add(gi)
             results.append(('tp', pi, gi))
-        else:
-            results.append(('fp', pi, gi))
-            results.append(('fn', pi, gi))
 
     for pi in range(n_pred):
         if pi not in matched_pred:
@@ -110,20 +106,7 @@ def save_label_image(img, mask, path):
     cv2.imwrite(path, vis)
 
 
-def save_sample_metadata(path, img_path, lbl_path, category, cls_name, pred_idx, gt_idx):
-    with open(path, 'w', encoding='utf-8') as f:
-        f.write(f'image_path={img_path}\n')
-        f.write(f'image_path_abs={os.path.abspath(img_path)}\n')
-        f.write(f'label_path={lbl_path}\n')
-        f.write(f'label_path_abs={os.path.abspath(lbl_path)}\n')
-        f.write(f'class={cls_name}\n')
-        f.write(f'category={category}\n')
-        f.write(f'pred_idx={pred_idx}\n')
-        f.write(f'gt_idx={gt_idx}\n')
-
-
-def main(test_csv, model_to_test, iou_threshold):
-    make_yolo_split(test_csv, "test")
+def main(test_csv, model_to_test, iou_threshold, conf_threshold):
     model = YOLO(model_to_test)
     out_dir = get_output_dir()
 
@@ -139,7 +122,7 @@ def main(test_csv, model_to_test, iou_threshold):
 
         gt_by_class = parse_gt_labels(lbl_path, img_w, img_h)
 
-        results = model.predict(img_path, verbose=False)
+        results = model.predict(img_path, verbose=False, conf=conf_threshold)
         result = results[0]
 
         pred_by_class = {}
@@ -167,17 +150,6 @@ def main(test_csv, model_to_test, iou_threshold):
                 sample_id = f'{i}_{match_idx}'
                 pred_path = os.path.join(dir_path, f'{sample_id}_pred{ext}')
                 label_path = os.path.join(dir_path, f'{sample_id}_label{ext}')
-                metadata_path = os.path.join(dir_path, f'{sample_id}_meta.txt')
-
-                save_sample_metadata(
-                    metadata_path,
-                    img_path,
-                    lbl_path,
-                    category,
-                    cls_name,
-                    pred_idx,
-                    gt_idx,
-                )
 
                 if category == 'tn':
                     cv2.imwrite(pred_path, img)
@@ -204,11 +176,13 @@ if __name__ == '__main__':
 
     default_split = os.getenv('SPLIT', 'Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct')
     default_test_model = os.getenv('TEST_MODEL', 'models/weights.pt')
-    default_threshold = float(os.getenv('IOU_THRESHOLD', '0.8'))
+    default_threshold = float(os.getenv('IOU_THRESHOLD', '0.7'))
+    default_conf_threshold = float(os.getenv('CONF_THRESHOLD', '0.7'))
 
     parser.add_argument('--test_csv', type=str, default=os.path.join(default_split, 'test.csv'))
     parser.add_argument('--model_to_test', type=str, default=default_test_model)
     parser.add_argument('--iou_threshold', type=float, default=float(default_threshold))
+    parser.add_argument('--conf_threshold', type=float, default=default_conf_threshold)
 
     args = parser.parse_args()
     main(**vars(args))
