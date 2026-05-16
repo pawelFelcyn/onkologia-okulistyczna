@@ -170,10 +170,11 @@ if __name__ == '__main__':
 
     default_split = os.getenv('SPLIT', 'Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct')
     default_test_model = os.getenv('TEST_MODEL', 'models/weights.pt')
+    default_threshold = float(os.getenv('IOU_THRESHOLD', '0.8'))
 
     parser.add_argument('--test_csv', type=str, default=os.path.join(default_split, 'test.csv'))
     parser.add_argument('--model_to_test', type=str, default=default_test_model)
-    parser.add_argument('--iou_threshold', type=float, default=0.8)
+    parser.add_argument('--iou_threshold', type=float, default=float(default_threshold))
 
     args = parser.parse_args()
     main(**vars(args))
