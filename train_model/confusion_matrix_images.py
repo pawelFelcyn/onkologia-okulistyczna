@@ -77,7 +77,7 @@ def greedy_match(pred_masks, gt_masks, threshold):
             results.append(('tp', pi, gi))
         else:
             results.append(('fp', pi, None))
-            results.append(('fn', None, gi))
+            results.append(('fn', pi, gi))
 
     for pi in range(n_pred):
         if pi not in matched_pred:
@@ -106,6 +106,18 @@ def save_pred_image(img, mask, box, path):
 def save_label_image(img, mask, path):
     vis = draw_mask_overlay(img, mask, color=(0, 0, 255))
     cv2.imwrite(path, vis)
+
+
+def save_sample_metadata(path, img_path, lbl_path, category, cls_name, pred_idx, gt_idx):
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(f'image_path={img_path}\n')
+        f.write(f'image_path_abs={os.path.abspath(img_path)}\n')
+        f.write(f'label_path={lbl_path}\n')
+        f.write(f'label_path_abs={os.path.abspath(lbl_path)}\n')
+        f.write(f'class={cls_name}\n')
+        f.write(f'category={category}\n')
+        f.write(f'pred_idx={pred_idx}\n')
+        f.write(f'gt_idx={gt_idx}\n')
 
 
 def main(test_csv, model_to_test, iou_threshold):
@@ -144,12 +156,26 @@ def main(test_csv, model_to_test, iou_threshold):
             pred_masks = [m for m, _ in pred_items]
             pred_boxes = [b for _, b in pred_items]
 
-            for category, pred_idx, gt_idx in greedy_match(pred_masks, gt_masks, iou_threshold):
+            for match_idx, (category, pred_idx, gt_idx) in enumerate(
+                greedy_match(pred_masks, gt_masks, iou_threshold)
+            ):
                 dir_path = os.path.join(out_dir, cls_name, category)
                 os.makedirs(dir_path, exist_ok=True)
 
-                pred_path = os.path.join(dir_path, f'{i}_pred{ext}')
-                label_path = os.path.join(dir_path, f'{i}_label{ext}')
+                sample_id = f'{i}_{match_idx}'
+                pred_path = os.path.join(dir_path, f'{sample_id}_pred{ext}')
+                label_path = os.path.join(dir_path, f'{sample_id}_label{ext}')
+                metadata_path = os.path.join(dir_path, f'{sample_id}_meta.txt')
+
+                save_sample_metadata(
+                    metadata_path,
+                    img_path,
+                    lbl_path,
+                    category,
+                    cls_name,
+                    pred_idx,
+                    gt_idx,
+                )
 
                 if category == 'tn':
                     cv2.imwrite(pred_path, img)
@@ -161,7 +187,10 @@ def main(test_csv, model_to_test, iou_threshold):
                     save_pred_image(img, pred_masks[pred_idx], pred_boxes[pred_idx], pred_path)
                     cv2.imwrite(label_path, img)
                 elif category == 'fn':
-                    cv2.imwrite(pred_path, img)
+                    if pred_idx is not None:
+                        save_pred_image(img, pred_masks[pred_idx], pred_boxes[pred_idx], pred_path)
+                    else:
+                        cv2.imwrite(pred_path, img)
                     save_label_image(img, gt_masks[gt_idx], label_path)
 
 
