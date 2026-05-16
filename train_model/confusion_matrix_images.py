@@ -32,10 +32,12 @@ def parse_gt_labels(label_path, img_w, img_h):
                 continue
             cls = int(parts[0])
             coords = list(map(float, parts[1:]))
+            if len(coords) < 6 or len(coords) % 2 != 0:
+                continue
             points = np.array(coords).reshape(-1, 2)
             points[:, 0] *= img_w
             points[:, 1] *= img_h
-            points = points.astype(np.int32)
+            points = np.round(points).astype(np.int32)
             mask = np.zeros((img_h, img_w), dtype=np.uint8)
             cv2.fillPoly(mask, [points], 1)
             gt.setdefault(cls, []).append(mask)
@@ -76,7 +78,7 @@ def greedy_match(pred_masks, gt_masks, threshold):
         if iou >= threshold:
             results.append(('tp', pi, gi))
         else:
-            results.append(('fp', pi, None))
+            results.append(('fp', pi, gi))
             results.append(('fn', pi, gi))
 
     for pi in range(n_pred):
@@ -185,7 +187,10 @@ def main(test_csv, model_to_test, iou_threshold):
                     save_label_image(img, gt_masks[gt_idx], label_path)
                 elif category == 'fp':
                     save_pred_image(img, pred_masks[pred_idx], pred_boxes[pred_idx], pred_path)
-                    cv2.imwrite(label_path, img)
+                    if gt_idx is not None:
+                        save_label_image(img, gt_masks[gt_idx], label_path)
+                    else:
+                        cv2.imwrite(label_path, img)
                 elif category == 'fn':
                     if pred_idx is not None:
                         save_pred_image(img, pred_masks[pred_idx], pred_boxes[pred_idx], pred_path)
