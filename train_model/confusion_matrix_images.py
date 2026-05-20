@@ -49,42 +49,34 @@ def compute_iou(mask1, mask2):
     return float(inter / union) if union > 0 else 0.0
 
 
-def greedy_match(pred_masks, gt_masks, threshold):
-    """
-    Greedy IoU matching. Returns list of (category, pred_idx_or_None, gt_idx_or_None).
-    """
-    if not pred_masks and not gt_masks:
-        return [('tn', None, None)]
+def classify_case(pred_masks, gt_masks, threshold):
+    best_iou = 0.0
+    best_pred_idx = None
+    best_gt_idx = None
 
-    n_pred, n_gt = len(pred_masks), len(gt_masks)
-    iou_matrix = np.zeros((n_pred, n_gt))
-    for pi, pm in enumerate(pred_masks):
-        for gi, gm in enumerate(gt_masks):
-            iou_matrix[pi, gi] = compute_iou(pm, gm)
+    has_pred = len(pred_masks) > 0
+    has_gt = len(gt_masks) > 0
 
-    matched_pred, matched_gt = set(), set()
-    pairs = sorted(
-        [(iou_matrix[pi, gi], pi, gi) for pi in range(n_pred) for gi in range(n_gt)],
-        reverse=True,
-    )
+    if has_pred and has_gt:
+        for pred_idx, pred_mask in enumerate(pred_masks):
+            for gt_idx, gt_mask in enumerate(gt_masks):
+                iou = compute_iou(pred_mask, gt_mask)
+                if iou > best_iou:
+                    best_iou = iou
+                    best_pred_idx = pred_idx
+                    best_gt_idx = gt_idx
 
-    results = []
-    for iou, pi, gi in pairs:
-        if pi in matched_pred or gi in matched_gt:
-            continue
-        if iou >= threshold:
-            matched_pred.add(pi)
-            matched_gt.add(gi)
-            results.append(('tp', pi, gi))
+    if has_pred and has_gt and best_iou >= threshold:
+        return 'tp', best_pred_idx, best_gt_idx, best_iou
 
-    for pi in range(n_pred):
-        if pi not in matched_pred:
-            results.append(('fp', pi, None))
-    for gi in range(n_gt):
-        if gi not in matched_gt:
-            results.append(('fn', None, gi))
+    if has_pred and (not has_gt or best_iou < threshold):
+        p_idx = best_pred_idx if best_pred_idx is not None else 0
+        return 'fp', p_idx, best_gt_idx, best_iou
 
-    return results
+    if not has_pred and has_gt:
+        return 'fn', None, 0, 0.0
+
+    return 'tn', None, None, 0.0
 
 
 def draw_mask_overlay(img, mask, color, alpha=0.4):
@@ -106,6 +98,26 @@ def save_label_image(img, mask, path):
     cv2.imwrite(path, vis)
 
 
+def collect_predicted_masks(result, img_w, img_h, conf_threshold):
+    pred_by_class = {}
+    if result.masks is None or result.boxes is None:
+        return pred_by_class
+
+    for j in range(len(result.masks)):
+        confidence = float(result.boxes.conf[j].item())
+        if confidence < conf_threshold:
+            continue
+
+        cls = int(result.boxes.cls[j].item())
+        mask = (result.masks.data[j].cpu().numpy() > 0.5).astype(np.uint8)
+        if mask.shape != (img_h, img_w):
+            mask = cv2.resize(mask, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
+        box = result.boxes.data[j].cpu().numpy()
+        pred_by_class.setdefault(cls, []).append((mask, box))
+
+    return pred_by_class
+
+
 def main(test_csv, model_to_test, iou_threshold, conf_threshold):
     model = YOLO(model_to_test)
     out_dir = get_output_dir()
@@ -122,18 +134,10 @@ def main(test_csv, model_to_test, iou_threshold, conf_threshold):
 
         gt_by_class = parse_gt_labels(lbl_path, img_w, img_h)
 
-        results = model.predict(img_path, verbose=False, conf=conf_threshold)
+        results = model.predict(img_path, verbose=False, conf=0.001)
         result = results[0]
 
-        pred_by_class = {}
-        if result.masks is not None:
-            for j in range(len(result.masks)):
-                cls = int(result.boxes.cls[j].item())
-                mask = (result.masks.data[j].cpu().numpy() > 0.5).astype(np.uint8)
-                if mask.shape != (img_h, img_w):
-                    mask = cv2.resize(mask, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
-                box = result.boxes.data[j].cpu().numpy()
-                pred_by_class.setdefault(cls, []).append((mask, box))
+        pred_by_class = collect_predicted_masks(result, img_w, img_h, conf_threshold)
 
         for cls_id, cls_name in CLASSES.items():
             pred_items = pred_by_class.get(cls_id, [])
@@ -141,34 +145,26 @@ def main(test_csv, model_to_test, iou_threshold, conf_threshold):
             pred_masks = [m for m, _ in pred_items]
             pred_boxes = [b for _, b in pred_items]
 
-            for match_idx, (category, pred_idx, gt_idx) in enumerate(
-                greedy_match(pred_masks, gt_masks, iou_threshold)
-            ):
-                dir_path = os.path.join(out_dir, cls_name, category)
-                os.makedirs(dir_path, exist_ok=True)
+            category, pred_idx, gt_idx, _ = classify_case(pred_masks, gt_masks, iou_threshold)
 
-                sample_id = f'{i}_{match_idx}'
-                pred_path = os.path.join(dir_path, f'{sample_id}_pred{ext}')
-                label_path = os.path.join(dir_path, f'{sample_id}_label{ext}')
+            dir_path = os.path.join(out_dir, cls_name, category)
+            os.makedirs(dir_path, exist_ok=True)
 
-                if category == 'tn':
-                    cv2.imwrite(pred_path, img)
-                    cv2.imwrite(label_path, img)
-                elif category == 'tp':
-                    save_pred_image(img, pred_masks[pred_idx], pred_boxes[pred_idx], pred_path)
-                    save_label_image(img, gt_masks[gt_idx], label_path)
-                elif category == 'fp':
-                    save_pred_image(img, pred_masks[pred_idx], pred_boxes[pred_idx], pred_path)
-                    if gt_idx is not None:
-                        save_label_image(img, gt_masks[gt_idx], label_path)
-                    else:
-                        cv2.imwrite(label_path, img)
-                elif category == 'fn':
-                    if pred_idx is not None:
-                        save_pred_image(img, pred_masks[pred_idx], pred_boxes[pred_idx], pred_path)
-                    else:
-                        cv2.imwrite(pred_path, img)
-                    save_label_image(img, gt_masks[gt_idx], label_path)
+            sample_id = f'{i}'
+            pred_path = os.path.join(dir_path, f'{sample_id}_pred{ext}')
+            label_path = os.path.join(dir_path, f'{sample_id}_label{ext}')
+
+            if pred_idx is not None:
+                save_pred_image(img, pred_masks[pred_idx], pred_boxes[pred_idx], pred_path)
+            else:
+                cv2.imwrite(pred_path, img)
+
+            if gt_idx is not None:
+                save_label_image(img, gt_masks[gt_idx], label_path)
+            elif gt_masks:
+                save_label_image(img, gt_masks[0], label_path)
+            else:
+                cv2.imwrite(label_path, img)
 
 
 if __name__ == '__main__':
@@ -176,8 +172,8 @@ if __name__ == '__main__':
 
     default_split = os.getenv('SPLIT', 'Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct')
     default_test_model = os.getenv('TEST_MODEL', 'models/weights.pt')
-    default_threshold = float(os.getenv('IOU_THRESHOLD', '0.7'))
-    default_conf_threshold = float(os.getenv('CONF_THRESHOLD', '0.7'))
+    default_threshold = float(os.getenv('IOU_THRESHOLD', '0.8'))
+    default_conf_threshold = float(os.getenv('CONF_THRESHOLD', '0.5'))
 
     parser.add_argument('--test_csv', type=str, default=os.path.join(default_split, 'test.csv'))
     parser.add_argument('--model_to_test', type=str, default=default_test_model)
