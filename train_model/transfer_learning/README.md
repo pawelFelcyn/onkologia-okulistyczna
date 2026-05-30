@@ -125,6 +125,33 @@ python train_model/test_unet.py \
 
 Evaluation artifacts are saved automatically to `runs_unet/unet_eval__.../` (see “Expected outputs” above).
 
+## Reported Experiment Results
+
+The final transfer-learning experiment results are included in:
+
+- `train_model/transfer_learning/transfer_learning_results.csv`
+
+This CSV contains the evaluated U-Net runs, including baseline, Kermany transfer and frozen-encoder variants, with Dice/IoU/F1 metrics for fluid and tumor segmentation.
+
+The CSV can be regenerated from trained checkpoints with `train_model/test_unet.py` by passing `--models_dir`, `--model_glob` and `--metrics_csv`, for example:
+
+```bash
+python train_model/test_unet.py \
+    --split Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct \
+    --models_dir models/unet \
+    --model_glob "*.pth" \
+    --metrics_csv train_model/transfer_learning/transfer_learning_results.csv \
+    --imgsz 512 \
+    --batch 8
+```
+
+Trained model checkpoints are not stored in this repository because of their size. They are kept on the WMI UAM university cluster:
+
+- `/projects/onkokul/onkologia-okulistyczna/models/unet` - final `.pth` model weight files.
+- `/projects/onkokul/onkologia-okulistyczna/runs_unet` - detailed training/evaluation run directories, including per-run artifacts, epoch-level data, model weights and TensorBoard metrics that document the training flow.
+
+These artifacts can be provided separately if needed for assessment.
+
 ## Goal
 
 Pretrain a **U-Net encoder** on the [Kermany OCT 2018](https://www.kaggle.com/datasets/paultimothymooney/kermany2018) classification dataset before using it for retinal layer segmentation.
