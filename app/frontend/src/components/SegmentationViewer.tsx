@@ -1,15 +1,25 @@
 import React, { useEffect, useRef, useState } from "react";
-import { X, Eye, EyeOff, Loader, ChevronRight } from "lucide-react";
+import { X, Eye, EyeOff, Loader, ChevronRight, CalendarDays } from "lucide-react";
 import type { Detection } from "../types/inference";
 import AEyeLogo from "../assets/logo.svg";
 
 interface SegmentationViewerProps {
   imageUrl: string;
+  detections: Detection[];
+  imageName: string;
+  modelName: string;
+  studyDate: string;
+  errorMessage?: string | null;
   onClose: () => void;
 }
 
 export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
   imageUrl,
+  detections,
+  imageName,
+  modelName,
+  studyDate,
+  errorMessage,
   onClose,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -18,40 +28,10 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
 
   const [showOverlay, setShowOverlay] = useState(true);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [sliderPosition, setSliderPosition] = useState(50);
-  const [detections, setDetections] = useState<Detection[]>([]);
   const [viewMode, setViewMode] = useState<"comparison" | "analysis">(
     "comparison",
   );
-  const [selectedModel, setSelectedModel] = useState<"yolo" | "unet">("yolo");
-
-  useEffect(() => {
-    const fetchSegmentation = async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetch(imageUrl);
-        const blob = await response.blob();
-        const formData = new FormData();
-        formData.append("file", blob);
-        formData.append("model", selectedModel);
-
-        const inferenceResponse = await fetch("http://localhost:8000/inference", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await inferenceResponse.json();
-        setDetections(data.detections || []);
-      } catch (error) {
-        console.error("API Error:", error);
-        setDetections([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchSegmentation();
-  }, [imageUrl, selectedModel]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -59,6 +39,7 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    setImageLoaded(false);
     const img = new Image();
     img.src = imageUrl;
     img.onload = () => {
@@ -90,7 +71,6 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
       }
       setImageLoaded(true);
     };
-
   }, [imageUrl, showOverlay, sliderPosition, detections, viewMode]);
 
   const updateSliderPosition = (clientX: number) => {
@@ -185,14 +165,18 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
               <h2 className="text-xl font-bold tracking-tight">
                 AI Segmentation
               </h2>
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value as "yolo" | "unet")}
-                className="text-xs text-white/40 uppercase tracking-widest font-mono bg-transparent border border-white/10 rounded px-2 py-1 cursor-pointer hover:border-white/30 transition-colors"
-              >
-                <option value="yolo" className="bg-black text-white hover:bg-accent hover:text-black">Yolov8</option>
-                <option value="unet" className="bg-black text-white hover:bg-accent hover:text-black">UNet</option>
-              </select>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/50">
+                <span className="rounded-full border border-white/10 px-2 py-1 uppercase tracking-[0.2em]">
+                  {modelName}
+                </span>
+                <span className="rounded-full border border-white/10 px-2 py-1">
+                  {imageName}
+                </span>
+                <span className="flex items-center gap-1 rounded-full border border-white/10 px-2 py-1">
+                  <CalendarDays size={12} />
+                  {studyDate}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -336,10 +320,9 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center h-40 opacity-40">
-              <Loader className="animate-spin mb-4" />
-              <p className="text-sm font-medium">Processing scan...</p>
+          {errorMessage ? (
+            <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-100">
+              {errorMessage}
             </div>
           ) : detections.length > 0 ? (
             detections.map((det, i) => (
@@ -389,7 +372,7 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
             ))
           ) : (
             <div className="text-center py-20 opacity-30 text-sm italic">
-              No clinical anomalies found
+              No saved anomalies found for this scan
             </div>
           )}
         </div>
