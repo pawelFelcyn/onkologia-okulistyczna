@@ -76,18 +76,37 @@ class InferenceService:
                 return p
             raise FileNotFoundError(f"{kind} not found at absolute path: {p}")
 
-        # Prefer explicit paths relative to backend_dir, then fall back to backend_dir/models.
-        candidate_1 = (self._backend_dir / p)
-        if candidate_1.exists():
-            return candidate_1
+        repo_root = self._backend_dir.parent.parent
+        candidates = [
+            self._backend_dir / p,
+            self._backend_dir / "models" / p,
+            repo_root / p,
+            repo_root / "models" / p,
+            repo_root / "base_models" / p,
+        ]
 
-        candidate_2 = (self._backend_dir / "models" / p)
-        if candidate_2.exists():
-            return candidate_2
+        if p.name == "yolo-weights.pt":
+            candidates.extend(
+                [
+                    repo_root / "models" / "weights.pt",
+                    repo_root / "base_models" / "yolov8n-seg.pt",
+                ]
+            )
 
-        raise FileNotFoundError(
-            f"{kind} not found. Tried: {candidate_1} and {candidate_2}"
-        )
+        if p.name == "unet.pth":
+            candidates.extend(
+                [
+                    repo_root / "models" / "unet" / "weights.pth",
+                    repo_root / "models" / "unet" / "weights(1).pth",
+                ]
+            )
+
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+
+        tried_paths = ", ".join(str(candidate) for candidate in candidates)
+        raise FileNotFoundError(f"{kind} not found. Tried: {tried_paths}")
 
     @property
     def device(self) -> torch.device:
