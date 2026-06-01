@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 
-split_path = os.path.join("Ophthalmic_Scans", "splits", "tumor_and_fluid_segmentation_oct2")
+split_path = os.path.join("Ophthalmic_Scans", "splits", "tumor_and_fluid_segmentation_oct3")
 
 
 def extract_patient_and_session(path: str) -> tuple[str, str]:
