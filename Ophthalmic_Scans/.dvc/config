@@ -1,4 +1,4 @@
 [core]
     remote = dvcorigin
 ['remote "dvcorigin"']
-    url = ssh://magisterka:/home/ophthal/label-studio/dataset
+    url = ssh://ophthal@ophthal.vm.wmi.amu.edu.pl:/home/ophthal/label-studio/dataset
