@@ -231,3 +231,7 @@ train_model/transfer_learning/results
 train_model/transfer_learning/runs_kermany
 app/*.md
 /train_model/transfer_learning/OCT2018/
+
+
+#tumor_algorythm
+tumor_algorythm/output/
