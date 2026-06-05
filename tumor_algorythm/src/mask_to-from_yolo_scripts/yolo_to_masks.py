@@ -8,9 +8,6 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
 DEFAULT_DATA_DIR = os.path.join(PROJECT_ROOT, "data", "segmentation_masks")
 
 def yolo2mask(yolo_txt_path: str, output_mask_path: str, width: int, height: int, mask_value: int = 255):
-    """
-    Rysuje maskę na podstawie pliku YOLO.
-    """
     mask = np.zeros((height, width), dtype=np.uint8)
     
     if os.path.getsize(yolo_txt_path) == 0:
@@ -43,23 +40,23 @@ def verify_dataset(base_data_dir: str = DEFAULT_DATA_DIR):
     patient_dirs = [d for d in os.listdir(base_data_dir) if os.path.isdir(os.path.join(base_data_dir, d))]
     
     for patient in patient_dirs:
-        print(f"\nSprawdzanie pacjenta: {patient}")
+        print(f"\nChecking patient: {patient}")
         patient_path = os.path.join(base_data_dir, patient)
-        
+
         yolo_labels_dir = os.path.join(patient_path, "yolo_labels")
         original_masks_dir = os.path.join(patient_path, "masks")
         check_dir = os.path.join(patient_path, "check_masks_from_yolo")
-        
+
         if not os.path.exists(yolo_labels_dir):
-            print(f"  -> Brak folderu 'yolo_labels', pomijam.")
+            print(f"  -> No 'yolo_labels' folder, skipping.")
             continue
-            
+
         os.makedirs(check_dir, exist_ok=True)
-        
+
         yolo_files = glob.glob(os.path.join(yolo_labels_dir, "*.txt"))
-        
+
         if not yolo_files:
-            print(f"  -> Folder 'yolo_labels' jest pusty.")
+            print(f"  -> 'yolo_labels' folder is empty.")
             continue
             
         for yolo_path in yolo_files:
@@ -70,21 +67,21 @@ def verify_dataset(base_data_dir: str = DEFAULT_DATA_DIR):
             output_mask_path = os.path.join(check_dir, base_name + ".png")
             
             if not os.path.exists(original_mask_path):
-                print(f"  ✗ Brak pliku referencyjnego {base_name}.png do pobrania wymiarów.")
+                print(f"  No reference file {base_name}.png to read dimensions.")
                 continue
-                
+
             orig_img = cv2.imread(original_mask_path, cv2.IMREAD_GRAYSCALE)
             if orig_img is None:
-                print(f"  ✗ Nie można odczytać obrazu {original_mask_path}")
+                print(f"  Cannot read image {original_mask_path}")
                 continue
-                
+
             height, width = orig_img.shape
-            
+
             try:
                 yolo2mask(yolo_path, output_mask_path, width, height)
-                print(f"  ✓ Wygenerowano maskę testową: {base_name}.png")
+                print(f"  Generated test mask: {base_name}.png")
             except Exception as e:
-                print(f"  ✗ Błąd przy pliku {filename}: {e}")
+                print(f"  Error on file {filename}: {e}")
 
 if __name__ == "__main__":
     verify_dataset()

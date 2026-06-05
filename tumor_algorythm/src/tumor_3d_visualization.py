@@ -29,7 +29,7 @@ SIMPLIFY_TOLERANCE_PX = 1.0
 def build_radial_slices(labels_dir):
     files = list_label_files(labels_dir)
     if not files:
-        raise FileNotFoundError(f"Brak plików .txt w folderze: {labels_dir}")
+        raise FileNotFoundError(f"No .txt files in folder: {labels_dir}")
 
     left_halves, right_halves = [], []
     for path in files:
@@ -115,9 +115,9 @@ def plot_slices(ax, slices, norm, cmap):
     if len(cent):
         ax.scatter(cent[:, 0], cent[:, 1], cent[:, 2],
                    color="crimson", s=14, depthshade=True,
-                   label="środki ciężkości")
+                   label="centroids")
 
-    ax.set_title("Przekroje radialne")
+    ax.set_title("Radial cross-sections")
 
 
 def plot_solid(ax, slices, norm, cmap):
@@ -152,7 +152,7 @@ def plot_solid(ax, slices, norm, cmap):
         coll.set_linewidth(0.1)
         ax.add_collection3d(coll)
 
-    ax.set_title("Rekonstrukcja bryły (sweep przekrojów co 15°)")
+    ax.set_title("Solid reconstruction - 15 deg sweep")
 
 
 def decorate_axes(ax, slices):
@@ -169,15 +169,15 @@ def decorate_axes(ax, slices):
 
     z0, z1 = mins[2], maxs[2]
     ax.plot([0, 0], [0, 0], [z0, z1], color="black", lw=1.2,
-            linestyle="--", label="oś obrotu")
+            linestyle="--", label="rotation axis")
 
     span = (maxs - mins)
     span[span == 0] = 1.0
     ax.set_box_aspect(span)
 
-    ax.set_xlabel("X (mm)")
-    ax.set_ylabel("Y (mm)")
-    ax.set_zlabel("głębokość (mm)")
+    ax.set_xlabel("X [mm]")
+    ax.set_ylabel("Y [mm]")
+    ax.set_zlabel("depth [mm]")
     ax.invert_zaxis()          
     ax.view_init(elev=28, azim=-55)
 
@@ -219,11 +219,11 @@ def visualize(labels_dir, mode="both", out_path=None, show=True):
     mappable = cm.ScalarMappable(norm=norm, cmap=cmap)
     mappable.set_array([])
     cbar = fig.colorbar(mappable, ax=axes_for_bar, shrink=0.6, pad=0.08)
-    cbar.set_label("Pole przekroju [mm$^2$]")
+    cbar.set_label("Cross-section area [mm$^2$]")
 
     fig.suptitle(
-        f"Wolumetria guza oka (OCT radialny)   |   "
-        f"Objętość = {volume_mm3:.4e} mm$^3$",
+        f"Eye tumor volumetry - radial OCT   |   "
+        f"Volume = {volume_mm3:.4e} mm$^3$",
         fontsize=13, fontweight="bold",
     )
 
@@ -231,20 +231,20 @@ def visualize(labels_dir, mode="both", out_path=None, show=True):
         out_path = default_out_path(labels_dir)
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
-    print(f"\nZapisano wizualizację 3D: {out_path}")
+    print(f"\nSaved 3D visualization: {out_path}")
 
     if show:
         try:
             plt.show()
-        except Exception as exc:  # brak środowiska graficznego
-            print(f"Nie udało się otworzyć okna ({exc}). "
-                  f"Obraz zapisano do pliku.")
+        except Exception as exc:  # no graphical environment
+            print(f"Could not open window: {exc}. "
+                  f"Image saved to file.")
     plt.close(fig)
     return out_path
 
 
 def default_out_path(labels_dir):
-    """Plik wyjściowy: <projekt>/output/tumor_3d_<pacjent>.png."""
+    """Output file: <project>/output/tumor_3d_<patient>.png."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)               # tumor_algorythm
     patient = os.path.basename(os.path.dirname(os.path.normpath(labels_dir)))
@@ -255,29 +255,29 @@ def default_out_path(labels_dir):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Wizualizacja 3D guza oka z radialnych skanów OCT (YOLO).",
+        description="3D visualization of eye tumor from radial OCT scans, YOLO.",
     )
     parser.add_argument(
         "labels_dir", nargs="?", default=default_labels_dir(),
-        help="Folder z 12 plikami etykiet YOLO (.txt). "
-        "Domyślnie: data/segmentation_masks/patient_1/yolo_labels",
+        help="Folder with 12 YOLO .txt label files. "
+        "Default: data/segmentation_masks/patient_1/yolo_labels",
     )
     parser.add_argument(
         "--mode", choices=["both", "slices", "solid"], default="both",
-        help="Tryb wizualizacji (domyślnie: both).",
+        help="Visualization mode, default both.",
     )
     parser.add_argument(
         "--out", default=None,
-        help="Ścieżka pliku PNG do zapisu (domyślnie: output/tumor_3d_<pacjent>.png).",
+        help="Output PNG path, default output/tumor_3d_<patient>.png.",
     )
     parser.add_argument(
         "--no-show", action="store_true",
-        help="Nie otwieraj okna interaktywnego (tylko zapis do pliku).",
+        help="Do not open interactive window, save to file only.",
     )
     args = parser.parse_args(argv)
 
     if not os.path.isdir(args.labels_dir):
-        print(f"[BŁĄD] Folder nie istnieje: {args.labels_dir}", file=sys.stderr)
+        print(f"[ERROR] Folder does not exist: {args.labels_dir}", file=sys.stderr)
         return 1
 
     if args.no_show:

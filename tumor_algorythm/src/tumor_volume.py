@@ -24,20 +24,13 @@ DELTA_THETA_DEG = 15.0
 DELTA_THETA_RAD = np.pi / 12.0           
 
 NUM_SCANS = 12                           
-NUM_INTEGRATION_POINTS = 25             
+NUM_INTEGRATION_POINTS = 25    
 
 
 _trapezoid = getattr(np, "trapezoid", None) or np.trapz
 
 
 def load_yolo_polygon(txt_path):
-    """
-    Wczytuje plik etykiety YOLO i zwraca geometrię shapely w przestrzeni
-    pikselowej obrazu (denormalizacja współrzędnych).
-
-    Plik może zawierać wiele linii (wiele konturów) - są one łączone w jedną
-    geometrię (unia). Puste pliki (brak guza) zwracają pusty wielokąt.
-    """
     polygons = []
 
     if os.path.getsize(txt_path) == 0:
@@ -73,21 +66,9 @@ def load_yolo_polygon(txt_path):
 
 
 def split_along_axis(polygon):
-    """
-    Tnie wielokąt wzdłuż wirtualnej linii X = AXIS_OF_ROTATION_X (512.0) i
-    zwraca krotkę (lewa_polowa, prawa_polowa).
-
-    Lewa  połowa: X <= 512.0
-    Prawa połowa: X >= 512.0
-
-    Jeśli guz leży w całości po jednej stronie osi, druga połowa będzie pustą
-    geometrią (pole = 0) - jest to obsługiwane bezpiecznie.
-    """
     if polygon.is_empty:
         return Polygon(), Polygon()
 
-    # Prostokąty cięcia z zapasem, obejmujące całą przestrzeń obrazu po danej
-    # stronie osi obrotu.
     left_clip = box(-1.0, -1.0, AXIS_OF_ROTATION_X, IMAGE_HEIGHT + 1.0)
     right_clip = box(AXIS_OF_ROTATION_X, -1.0, IMAGE_WIDTH + 1.0, IMAGE_HEIGHT + 1.0)
 
@@ -97,14 +78,6 @@ def split_along_axis(polygon):
 
 
 def area_and_centroid_x(geom):
-    """
-    Zwraca (pole_w_px^2, centroid_x). Dla pustej / zerowej geometrii zwraca
-    (0.0, AXIS_OF_ROTATION_X), aby r_bar = 0 i moment = 0.
-
-    Geometria może być Polygon, MultiPolygon lub GeometryCollection (gdy
-    cięcie utworzy zdegenerowane fragmenty) - liczone jest tylko pole części
-    powierzchniowych, a centroid jest średnią ważoną polem.
-    """
     if geom is None or geom.is_empty:
         return 0.0, AXIS_OF_ROTATION_X
 
@@ -120,52 +93,37 @@ def area_and_centroid_x(geom):
 
 
 def list_label_files(labels_dir):
-    """
-    Zwraca posortowaną listę plików .txt z folderu etykiet.
 
-    Sortowanie jest NUMERYCZNE wg nazwy (1, 2, ..., 12), a nie leksykalne
-    (które dałoby 1, 10, 11, 12, 2, ...), co jest krytyczne dla poprawnego
-    przypisania skanu do kąta.
-    """
     files = glob.glob(os.path.join(labels_dir, "*.txt"))
 
     def sort_key(path):
         stem = os.path.splitext(os.path.basename(path))[0]
         try:
-            return (0, int(stem))      # pliki numeryczne najpierw, rosnąco
+            return (0, int(stem))      
         except ValueError:
-            return (1, stem)           # ewentualne nienumeryczne na końcu
+            return (1, stem)           
 
     return sorted(files, key=sort_key)
 
 
 def compute_tumor_volume(labels_dir, verbose=True):
-    """
-    Wykonuje pełny algorytm wolumetrii i zwraca słownik z wynikami:
-        {
-            "files": [...],            # rozpoznane pliki wejściowe
-            "rows": [...],             # 25 wierszy (theta, area, r, moment)
-            "M_array": np.ndarray,     # wektor momentów statycznych (25)
-            "volume_mm3": float,       # objętość guza w mm^3
-        }
-    """
     files = list_label_files(labels_dir)
     if not files:
-        raise FileNotFoundError(f"Brak plików .txt w folderze: {labels_dir}")
+        raise FileNotFoundError(f"No .txt files in folder: {labels_dir}")
 
     if verbose:
         print("=" * 78)
-        print("WOLUMETRIA GUZA OKA - radialne skany OCT (Pappus-Guldin + trapez)")
+        print("EYE TUMOR VOLUMETRY - radial OCT scans, Pappus-Guldin + trapezoid")
         print("=" * 78)
-        print(f"\nFolder etykiet : {labels_dir}")
-        print(f"Rozpoznano {len(files)} plików wejściowych (kolejność skanów):")
+        print(f"\nLabels folder : {labels_dir}")
+        print(f"Detected {len(files)} input files in scan order:")
         for idx, path in enumerate(files, start=1):
-            print(f"  Skan {idx:2d}: {os.path.basename(path)}")
+            print(f"  Scan {idx:2d}: {os.path.basename(path)}")
 
     if len(files) != NUM_SCANS:
         print(
-            f"\n[OSTRZEŻENIE] Oczekiwano {NUM_SCANS} skanów, znaleziono "
-            f"{len(files)}. Wynik może być niepoprawny."
+            f"\n[WARNING] Expected {NUM_SCANS} scans, found "
+            f"{len(files)}. Result may be incorrect."
         )
 
     left_halves = []
@@ -177,13 +135,13 @@ def compute_tumor_volume(labels_dir, verbose=True):
         right_halves.append(right_half)
 
     geometries = []
-    geometries.extend(left_halves)          # indeksy 0..11
-    geometries.extend(right_halves)         # indeksy 12..23
-    geometries.append(left_halves[0])       # indeks 24 (360° == 0°)
+    geometries.extend(left_halves)        
+    geometries.extend(right_halves)       
+    geometries.append(left_halves[0])       
 
     assert len(geometries) == NUM_INTEGRATION_POINTS, (
-        f"Wektor całkowania ma {len(geometries)} elementów, "
-        f"oczekiwano {NUM_INTEGRATION_POINTS}."
+        f"Integration vector has {len(geometries)} elements, "
+        f"expected {NUM_INTEGRATION_POINTS}."
     )
 
     rows = []
@@ -226,7 +184,7 @@ def compute_tumor_volume(labels_dir, verbose=True):
 
 def _print_report(rows, volume_mm3):
     print("\n" + "-" * 78)
-    print("Momenty statyczne dla 25 kątów theta")
+    print("Static moments for 25 theta angles")
     print("-" * 78)
     header = (
         f"{'#':>3} | {'theta [deg]':>11} | {'Area [mm^2]':>14} | "
@@ -242,15 +200,15 @@ def _print_report(rows, volume_mm3):
         )
 
     print("-" * 78)
-    print(f"Całkowita Objętość Guza: {volume_mm3:.6e} mm^3")
-    print(f"                       ( {volume_mm3:.8f} mm^3 )")
+    print(f"Total Tumor Volume: {volume_mm3:.6e} mm^3")
+    print(f"                    {volume_mm3:.8f} mm^3")
     print("=" * 78)
 
 
 def default_labels_dir():
-    """Domyślnie: data/segmentation_masks/patient_1/yolo_labels."""
+    """Default: data/segmentation_masks/patient_1/yolo_labels."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(script_dir)          # tumor_algorythm
+    project_root = os.path.dirname(script_dir)        
     return os.path.join(
         project_root, "data", "segmentation_masks", "patient_1", "yolo_labels"
     )
@@ -258,20 +216,19 @@ def default_labels_dir():
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Wolumetria guza oka na podstawie radialnych skanów OCT "
-        "(maski YOLO).",
+        description="Eye tumor volumetry from radial OCT scans, YOLO masks.",
     )
     parser.add_argument(
         "labels_dir",
         nargs="?",
         default=default_labels_dir(),
-        help="Folder z 12 plikami etykiet YOLO (.txt). "
-        "Domyślnie: data/segmentation_masks/patient_1/yolo_labels",
+        help="Folder with 12 YOLO .txt label files. "
+        "Default: data/segmentation_masks/patient_1/yolo_labels",
     )
     args = parser.parse_args(argv)
 
     if not os.path.isdir(args.labels_dir):
-        print(f"[BŁĄD] Folder nie istnieje: {args.labels_dir}", file=sys.stderr)
+        print(f"[ERROR] Folder does not exist: {args.labels_dir}", file=sys.stderr)
         return 1
 
     compute_tumor_volume(args.labels_dir, verbose=True)

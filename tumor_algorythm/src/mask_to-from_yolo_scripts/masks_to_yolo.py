@@ -10,7 +10,7 @@ DEFAULT_DATA_DIR = os.path.join(PROJECT_ROOT, "data", "segmentation_masks")
 def mask2yolo(mask_path: str, yolo_txt_path: str, label_id: int = 0, epsilon_factor: float = 0.0005):
     mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
     if mask is None:
-        raise FileNotFoundError(f"Nie można wczytać maski: {mask_path}")
+        raise FileNotFoundError(f"Cannot load mask: {mask_path}")
         
     height, width = mask.shape
     _, bin_mask = cv2.threshold(mask, 1, 255, cv2.THRESH_BINARY)
@@ -49,22 +49,22 @@ def process_dataset(base_data_dir: str = DEFAULT_DATA_DIR):
     patient_dirs = [d for d in os.listdir(base_data_dir) if os.path.isdir(os.path.join(base_data_dir, d))]
     
     for patient in patient_dirs:
-        print(f"Rozpoczynam przetwarzanie: {patient}")
+        print(f"Processing: {patient}")
         patient_path = os.path.join(base_data_dir, patient)
-        
+
         masks_dir = os.path.join(patient_path, "masks")
         yolo_labels_dir = os.path.join(patient_path, "yolo_labels")
-        
+
         os.makedirs(yolo_labels_dir, exist_ok=True)
-        
+
         if not os.path.exists(masks_dir):
-            print(f"  -> Brak folderu 'masks' dla {patient}, pomijam.")
+            print(f"  -> No 'masks' folder for {patient}, skipping.")
             continue
-            
+
         mask_files = glob.glob(os.path.join(masks_dir, "*.png"))
-        
+
         if not mask_files:
-            print(f"  -> Folder 'masks' jest pusty dla {patient}.")
+            print(f"  -> 'masks' folder is empty for {patient}.")
             continue
             
         for mask_path in mask_files:
@@ -75,9 +75,9 @@ def process_dataset(base_data_dir: str = DEFAULT_DATA_DIR):
             
             try:
                 mask2yolo(mask_path, yolo_txt_path)
-                print(f"  ✓ Zapisano: {txt_filename}")
+                print(f"  Saved: {txt_filename}")
             except Exception as e:
-                print(f"  ✗ Błąd przy pliku {filename}: {e}")
+                print(f"  Error on file {filename}: {e}")
 
 if __name__ == "__main__":
     process_dataset()
