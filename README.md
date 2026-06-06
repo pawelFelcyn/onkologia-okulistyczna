@@ -37,7 +37,8 @@ The dataset is versioned with DVC.
 
 1. Install [DVC](https://dvc.org/doc/install).
 2. Connect to the WMI UAM VPN if required for dataset access: [https://laboratoria.wmi.amu.edu.pl/uslugi/vpn/](https://laboratoria.wmi.amu.edu.pl/uslugi/vpn/).
-3. From the repository root, download the data:
+3. Ask the repository owner for access to the vm with dataset, if you don't have it.
+4. From the repository root, download the data:
 
 ```bash
 cd Ophthalmic_Scans
@@ -154,7 +155,7 @@ Recommended explicit command:
 python train_model/train_yolo.py \
    --train_csv Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct3/train.csv \
    --val_csv Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct3/val.csv \
-   --epochs 50 \
+   --epochs 100 \
    --imgsz 512 \
    --batch 16
 ```
