@@ -12,7 +12,8 @@ from ultralytics import YOLO
 from unet_arch import UNet
 
 
-UNET_INPUT_SIZE = 512
+MODEL_INPUT_SIZE = 512
+UNET_INPUT_SIZE = MODEL_INPUT_SIZE
 UNET_THRESHOLD = 0.5
 
 
@@ -128,8 +129,18 @@ class InferenceService:
             return InferenceResult(detections=self._infer_unet(pil_img))
         raise ValueError(f"Unknown model: {model}")
 
+    def _normalize_polygon(
+        self,
+        points: list[list[float]],
+        *,
+        width: int,
+        height: int,
+    ) -> list[list[float]]:
+        return [[float(x) / width, float(y) / height] for x, y in points]
+
     def _infer_yolo(self, pil_img: Image.Image) -> list[dict[str, Any]]:
-        results = self._yolo(pil_img)
+        orig_w, orig_h = pil_img.size
+        results = self._yolo(pil_img, imgsz=MODEL_INPUT_SIZE)
         r = results[0]
 
         detections: list[dict[str, Any]] = []
@@ -139,8 +150,18 @@ class InferenceService:
                 "conf": float(r.boxes[i].conf),
                 "box": r.boxes[i].xyxy[0].tolist(),
             }
-            if r.masks is not None:
-                det["segments"] = r.masks.xyn[i].tolist()  # normalized
+            if r.masks is not None and i < len(r.masks.xy):
+                pixel_segments = [
+                    [float(x), float(y)]
+                    for x, y in r.masks.xy[i].tolist()
+                ]
+                det["segments"] = self._normalize_polygon(
+                    pixel_segments,
+                    width=orig_w,
+                    height=orig_h,
+                )
+                det["segments_px"] = pixel_segments
+                det["mask_size"] = [orig_w, orig_h]
             detections.append(det)
 
         return detections
@@ -190,7 +211,12 @@ class InferenceService:
                 x1, y1 = float(xs.min()), float(ys.min())
                 x2, y2 = float(xs.max()), float(ys.max())
 
-                seg = [[float(x) / orig_w, float(y) / orig_h] for x, y in zip(xs, ys)]
+                pixel_segments = [[float(x), float(y)] for x, y in zip(xs, ys)]
+                seg = self._normalize_polygon(
+                    pixel_segments,
+                    width=orig_w,
+                    height=orig_h,
+                )
 
                 mask_bool = mask_bin > 0
                 conf = float(prob_map[mask_bool].mean()) if mask_bool.any() else 0.0
@@ -201,6 +227,8 @@ class InferenceService:
                         "conf": conf,
                         "box": [x1, y1, x2, y2],
                         "segments": seg,
+                        "segments_px": pixel_segments,
+                        "mask_size": [orig_w, orig_h],
                     }
                 )
 
