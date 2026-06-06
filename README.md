@@ -134,7 +134,7 @@ Create `train_model/.env` with the current YOLO split and the correct exported m
 
 ```env
 SPLIT=Ophthalmic_Scans/splits/tumor_and_fluid_segmentation_oct3
-EPOCHS=50
+EPOCHS=100
 BATCH=16
 TEST_MODEL=models/yolo/weights.pt
 ```
