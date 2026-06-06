@@ -145,11 +145,7 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
       // Draw label
       ctx.fillStyle = "#ef4444";
       ctx.font = `bold ${14 * scale}px Inter, sans-serif`;
-      ctx.fillText(
-        `${detection.class} (${(detection.conf * 100).toFixed(1)}%)`,
-        boxX + 10,
-        boxY - 10,
-      );
+      ctx.fillText(detection.class, boxX + 10, boxY - 10);
     });
   };
 
@@ -345,25 +341,8 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
                   >
                     {det.class}
                   </span>
-                  <span className="font-mono text-xs text-white/40 group-hover/card:text-white transition-colors">
-                    {(det.conf * 100).toFixed(1)}%
-                  </span>
                 </div>
                 <div className="space-y-2">
-                  <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="
-                                  h-full
-                                  bg-gradient-to-r
-                                  from-accent-dark
-                                  via-accent
-                                  to-accent-light
-                                  shadow-[0_0_12px_rgba(56,189,248,0.45)]
-                                  transition-[width] duration-1000 ease-out
-                                "
-                      style={{ width: `${det.conf * 100}%` }}
-                    />
-                  </div>
                   <p className="text-[10px] text-white/30 font-mono">
                     REGION: [{det.box.map((b) => Math.round(b)).join(", ")}]
                   </p>

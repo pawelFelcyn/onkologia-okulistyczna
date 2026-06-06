@@ -669,7 +669,7 @@ function App() {
                             {formatModelName(study.selected_model)}
                           </span>
                           <span className="text-sm font-semibold text-medical-900">
-                            {study.volume_mm3.toFixed(2)} mm³
+                            {study.volume_mm3.toFixed(2)}
                           </span>
                         </div>
 
@@ -727,7 +727,7 @@ function App() {
                           Volume
                         </div>
                         <div className="mt-2 text-lg font-semibold text-medical-900">
-                          {selectedStudy.volume_mm3.toFixed(2)} mm³
+                          {selectedStudy.volume_mm3.toFixed(2)}
                         </div>
                       </div>
                       <div className="rounded-2xl border border-medical-200 bg-medical-50 p-4">

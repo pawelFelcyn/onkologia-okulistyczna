@@ -32,11 +32,10 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
             <span className="text-sm text-medical-500 font-medium uppercase tracking-wide">
               Est. Tumor Volume
             </span>
-            <div className="flex items-end gap-2 mt-1">
+            <div className="mt-1">
               <span className="text-4xl font-bold text-medical-900">
                 {volume.toFixed(2)}
               </span>
-              <span className="text-base text-medical-500 mb-1.5">mm³</span>
             </div>
           </div>
         </div>

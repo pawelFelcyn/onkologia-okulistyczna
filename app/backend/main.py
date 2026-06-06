@@ -80,6 +80,28 @@ def _polygon_area(points: list[list[float]] | list[tuple[float, float]]) -> floa
     return abs(area) / 2.0
 
 
+def _get_detection_polygon_px(detection: dict[str, Any]) -> list[tuple[float, float]]:
+    pixel_segments = detection.get("segments_px") or []
+    if len(pixel_segments) >= 3:
+        return [
+            (float(point[0]), float(point[1]))
+            for point in pixel_segments
+            if isinstance(point, (list, tuple)) and len(point) >= 2
+        ]
+
+    normalized_segments = detection.get("segments") or []
+    mask_size = detection.get("mask_size") or []
+    if len(normalized_segments) >= 3 and len(mask_size) == 2:
+        width, height = float(mask_size[0]), float(mask_size[1])
+        return [
+            (float(point[0]) * width, float(point[1]) * height)
+            for point in normalized_segments
+            if isinstance(point, (list, tuple)) and len(point) >= 2
+        ]
+
+    return []
+
+
 def _estimate_volume_from_detections(study_scans: list[ProcessedScanInput]) -> float:
     tumor_areas: list[float] = []
 
@@ -88,9 +110,9 @@ def _estimate_volume_from_detections(study_scans: list[ProcessedScanInput]) -> f
             if detection.get("class") != "tumor":
                 continue
 
-            segments = detection.get("segments") or []
-            if len(segments) >= 3:
-                tumor_areas.append(_polygon_area(segments))
+            segments_px = _get_detection_polygon_px(detection)
+            if len(segments_px) >= 3:
+                tumor_areas.append(_polygon_area(segments_px))
                 continue
 
             x1, y1, x2, y2 = detection.get("box", [0, 0, 0, 0])

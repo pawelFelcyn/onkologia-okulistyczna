@@ -19,7 +19,7 @@ function formatAxisDate(value: string) {
 }
 
 function formatVolume(value: number) {
-  return `${value.toFixed(2)} mm³`;
+  return value.toFixed(2);
 }
 
 export const VolumeTrendChart: React.FC<VolumeTrendChartProps> = ({ points }) => {
