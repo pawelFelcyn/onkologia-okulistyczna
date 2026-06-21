@@ -41,6 +41,7 @@ export const SegmentationViewer: React.FC<SegmentationViewerProps> = ({
 
     setImageLoaded(false);
     const img = new Image();
+    img.crossOrigin = "use-credentials";
     img.src = imageUrl;
     img.onload = () => {
       const maxWidth = window.innerWidth * 0.6;

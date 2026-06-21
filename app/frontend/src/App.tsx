@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { CalendarDays, Database, FolderOpen, Loader2, Plus, ScanLine, UserRound } from "lucide-react";
 import { Layout } from "./components/Layout";
 import { FileUploader } from "./components/FileUploader";
+import { LoginScreen } from "./components/LoginScreen";
 import { SegmentationViewer } from "./components/SegmentationViewer";
 import { VolumeTrendChart } from "./components/VolumeTrendChart";
 import type { Patient, StudyDetail, StudyScan, StudySummary, VolumeTrendPoint } from "./types/app";
@@ -10,6 +11,30 @@ import type { Patient, StudyDetail, StudyScan, StudySummary, VolumeTrendPoint } 
 const API_BASE = "http://localhost:8000";
 
 type ModelType = "yolo" | "unet";
+type ThemeMode = "light" | "dark";
+
+interface AuthUser {
+  id: number;
+  username: string;
+  created_at: string;
+}
+
+class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+class AuthenticationError extends ApiError {
+  constructor(message: string) {
+    super(401, message);
+    this.name = "AuthenticationError";
+  }
+}
 
 interface PendingScan {
   id: string;
@@ -47,6 +72,14 @@ function buildApiUrl(path: string) {
   return `${API_BASE}${path}`;
 }
 
+function getStoredTheme(): ThemeMode {
+  if (typeof window === "undefined") {
+    return "light";
+  }
+
+  return window.localStorage.getItem("aeye-theme") === "dark" ? "dark" : "light";
+}
+
 function delay(ms: number) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
@@ -58,7 +91,10 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
     try {
-      const response = await fetch(buildApiUrl(path), init);
+      const response = await fetch(buildApiUrl(path), {
+        credentials: "include",
+        ...init,
+      });
       const isJson = response.headers
         .get("content-type")
         ?.includes("application/json");
@@ -70,16 +106,24 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
             ? String(payload.detail)
             : "Request failed";
 
+        if (response.status === 401) {
+          throw new AuthenticationError(detail);
+        }
+
         if (response.status >= 500 && attempt < 5) {
           await delay(1000 * (attempt + 1));
           continue;
         }
 
-        throw new Error(detail);
+        throw new ApiError(response.status, detail);
       }
 
       return payload as T;
     } catch (error) {
+      if (error instanceof ApiError && error.status < 500) {
+        throw error;
+      }
+
       lastError = error instanceof Error ? error : new Error("Request failed");
       if (attempt === 5) {
         break;
@@ -99,6 +143,14 @@ function getTumorDetectionCount(scans: StudyScan[]) {
 }
 
 function App() {
+  const [authStatus, setAuthStatus] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+  const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
+  const [theme, setTheme] = useState<ThemeMode>(getStoredTheme);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
   const [selectedStudyId, setSelectedStudyId] = useState<number | null>(null);
@@ -120,6 +172,30 @@ function App() {
     model: "yolo",
   });
 
+  const resetWorkspaceState = () => {
+    setPatients([]);
+    setSelectedPatientId(null);
+    setSelectedStudyId(null);
+    setSelectedPatient(null);
+    setStudies([]);
+    setSelectedStudy(null);
+    setTrendPoints([]);
+    setViewerScan(null);
+    setErrorMessage(null);
+    setPendingScans((current) => {
+      current.forEach((scan) => URL.revokeObjectURL(scan.previewUrl));
+      return [];
+    });
+  };
+
+  const handleAuthenticationFailure = (message: string) => {
+    setCurrentUser(null);
+    setIsSettingsOpen(false);
+    setAuthStatus("unauthenticated");
+    setAuthErrorMessage(message);
+    resetWorkspaceState();
+  };
+
   const loadPatients = async (preferredPatientId?: number) => {
     setPatientsLoading(true);
 
@@ -137,6 +213,10 @@ function App() {
       });
       setErrorMessage(null);
     } catch (error) {
+      if (error instanceof AuthenticationError) {
+        handleAuthenticationFailure(error.message);
+        return;
+      }
       setErrorMessage(error instanceof Error ? error.message : "Failed to load patients");
     } finally {
       setPatientsLoading(false);
@@ -173,6 +253,10 @@ function App() {
       });
       setErrorMessage(null);
     } catch (error) {
+      if (error instanceof AuthenticationError) {
+        handleAuthenticationFailure(error.message);
+        return;
+      }
       setSelectedPatient(null);
       setStudies([]);
       setTrendPoints([]);
@@ -190,6 +274,10 @@ function App() {
       setSelectedStudy(study);
       setErrorMessage(null);
     } catch (error) {
+      if (error instanceof AuthenticationError) {
+        handleAuthenticationFailure(error.message);
+        return;
+      }
       setSelectedStudy(null);
       setErrorMessage(error instanceof Error ? error.message : "Failed to load study details");
     } finally {
@@ -198,10 +286,52 @@ function App() {
   };
 
   useEffect(() => {
-    void loadPatients();
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("aeye-theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const bootstrap = async () => {
+      try {
+        const response = await apiRequest<{ user: AuthUser }>("/auth/me");
+        if (cancelled) {
+          return;
+        }
+
+        setCurrentUser(response.user);
+        setAuthErrorMessage(null);
+        setAuthStatus("authenticated");
+        await loadPatients();
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        if (error instanceof AuthenticationError) {
+          handleAuthenticationFailure("Log in to access the application.");
+          return;
+        }
+
+        setAuthStatus("unauthenticated");
+        setAuthErrorMessage(error instanceof Error ? error.message : "Failed to contact backend");
+        resetWorkspaceState();
+      }
+    };
+
+    void bootstrap();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
+    if (authStatus !== "authenticated") {
+      return;
+    }
+
     if (selectedPatientId === null) {
       setSelectedPatient(null);
       setStudies([]);
@@ -211,16 +341,20 @@ function App() {
     }
 
     void loadPatientWorkspace(selectedPatientId);
-  }, [selectedPatientId]);
+  }, [selectedPatientId, authStatus]);
 
   useEffect(() => {
+    if (authStatus !== "authenticated") {
+      return;
+    }
+
     if (selectedStudyId === null) {
       setSelectedStudy(null);
       return;
     }
 
     void loadStudy(selectedStudyId);
-  }, [selectedStudyId]);
+  }, [selectedStudyId, authStatus]);
 
   useEffect(() => {
     return () => {
@@ -281,6 +415,10 @@ function App() {
       setSelectedStudyId(null);
       setErrorMessage(null);
     } catch (error) {
+      if (error instanceof AuthenticationError) {
+        handleAuthenticationFailure(error.message);
+        return;
+      }
       setErrorMessage(error instanceof Error ? error.message : "Failed to create patient");
     } finally {
       setCreatingPatient(false);
@@ -326,9 +464,60 @@ function App() {
       setSelectedStudyId(created.id);
       setErrorMessage(null);
     } catch (error) {
+      if (error instanceof AuthenticationError) {
+        handleAuthenticationFailure(error.message);
+        return;
+      }
       setErrorMessage(error instanceof Error ? error.message : "Failed to create study");
     } finally {
       setCreatingStudy(false);
+    }
+  };
+
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoginLoading(true);
+
+    try {
+      const response = await apiRequest<{ user: AuthUser }>("/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(loginForm),
+      });
+
+      setCurrentUser(response.user);
+      setAuthErrorMessage(null);
+      setAuthStatus("authenticated");
+      await loadPatients();
+    } catch (error) {
+      setAuthStatus("unauthenticated");
+      setAuthErrorMessage(error instanceof Error ? error.message : "Failed to sign in");
+      resetWorkspaceState();
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setLogoutLoading(true);
+
+    try {
+      await apiRequest<void>("/auth/logout", {
+        method: "POST",
+      });
+    } catch (error) {
+      if (!(error instanceof AuthenticationError)) {
+        setAuthErrorMessage(error instanceof Error ? error.message : "Failed to log out");
+      }
+    } finally {
+      setLogoutLoading(false);
+      setCurrentUser(null);
+      setIsSettingsOpen(false);
+      setAuthStatus("unauthenticated");
+      setAuthErrorMessage(null);
+      resetWorkspaceState();
     }
   };
 
@@ -336,8 +525,54 @@ function App() {
     ? getTumorDetectionCount(selectedStudy.scans)
     : 0;
 
+  if (authStatus === "checking") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-medical-50">
+        <div className="flex items-center gap-3 rounded-3xl border border-medical-200 bg-white px-6 py-5 text-medical-700 shadow-sm">
+          <Loader2 size={20} className="animate-spin" />
+          Checking active session...
+        </div>
+      </div>
+    );
+  }
+
+  if (authStatus !== "authenticated" || currentUser === null) {
+    return (
+      <LoginScreen
+        username={loginForm.username}
+        password={loginForm.password}
+        isSubmitting={loginLoading}
+        errorMessage={authErrorMessage}
+        onSubmit={handleLogin}
+        onUsernameChange={(value) =>
+          setLoginForm((current) => ({
+            ...current,
+            username: value,
+          }))
+        }
+        onPasswordChange={(value) =>
+          setLoginForm((current) => ({
+            ...current,
+            password: value,
+          }))
+        }
+      />
+    );
+  }
+
   return (
-    <Layout>
+    <Layout
+      topbarProps={{
+        userName: currentUser.username,
+        theme,
+        isSettingsOpen,
+        isLoggingOut: logoutLoading,
+        onOpenSettings: () => setIsSettingsOpen(true),
+        onCloseSettings: () => setIsSettingsOpen(false),
+        onThemeChange: (nextTheme) => setTheme(nextTheme),
+        onLogout: handleLogout,
+      }}
+    >
       {viewerScan && selectedStudy && (
         <SegmentationViewer
           imageUrl={buildApiUrl(viewerScan.image_url)}
@@ -612,10 +847,6 @@ function App() {
                       </div>
                     )}
 
-                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                      Volume calculation is currently mocked, but every result is stored with the study date and scan set.
-                    </div>
-
                     <button
                       type="submit"
                       disabled={creatingStudy || pendingScans.length < 3}
@@ -757,6 +988,7 @@ function App() {
                           >
                             <img
                               src={buildApiUrl(scan.image_url)}
+                              crossOrigin="use-credentials"
                               alt={scan.filename}
                               className="h-48 w-full object-cover"
                             />

@@ -3,9 +3,74 @@
 @tailwind utilities;
 
 @layer base {
+    :root {
+        color-scheme: light;
+    }
+
+    html[data-theme="dark"] {
+        color-scheme: dark;
+    }
+
     body {
         @apply bg-medical-50 text-medical-900 antialiased;
+        transition: background-color 0.25s ease, color 0.25s ease;
     }
+}
+
+html[data-theme="dark"] body {
+    background-color: #08111d;
+    color: #e5eef7;
+}
+
+html[data-theme="dark"] .bg-white {
+    background-color: #0f172a !important;
+}
+
+html[data-theme="dark"] .bg-medical-50 {
+    background-color: #111c2d !important;
+}
+
+html[data-theme="dark"] .bg-medical-100 {
+    background-color: #1b2a40 !important;
+}
+
+html[data-theme="dark"] .border-medical-200,
+html[data-theme="dark"] .border-medical-300 {
+    border-color: #253349 !important;
+}
+
+html[data-theme="dark"] .text-medical-900,
+html[data-theme="dark"] .text-medical-800,
+html[data-theme="dark"] .text-medical-700 {
+    color: #e5eef7 !important;
+}
+
+html[data-theme="dark"] .text-medical-600,
+html[data-theme="dark"] .text-medical-500,
+html[data-theme="dark"] .text-medical-400 {
+    color: #9fb0c6 !important;
+}
+
+html[data-theme="dark"] .hover\:bg-medical-50:hover,
+html[data-theme="dark"] .hover\:bg-white:hover {
+    background-color: #162235 !important;
+}
+
+html[data-theme="dark"] .hover\:border-medical-300:hover,
+html[data-theme="dark"] .hover\:border-medical-200:hover {
+    border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .bg-red-50 {
+    background-color: rgba(127, 29, 29, 0.3) !important;
+}
+
+html[data-theme="dark"] .border-red-200 {
+    border-color: rgba(248, 113, 113, 0.35) !important;
+}
+
+html[data-theme="dark"] .text-red-700 {
+    color: #fecaca !important;
 }
 
 ::-webkit-scrollbar {
