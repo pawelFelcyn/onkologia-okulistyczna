@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import secrets
 import shutil
 import sqlite3
 from dataclasses import dataclass
@@ -12,6 +14,20 @@ from uuid import uuid4
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def hash_password(password: str, salt: str) -> str:
+    derived_key = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        200_000,
+    )
+    return derived_key.hex()
+
+
+def hash_session_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -35,6 +51,23 @@ class AppRepository:
         with self._connect() as conn:
             conn.executescript(
                 """
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    password_salt TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS auth_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+
                 CREATE TABLE IF NOT EXISTS patients (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     first_name TEXT NOT NULL,
@@ -64,10 +97,80 @@ class AppRepository:
                     FOREIGN KEY (study_id) REFERENCES studies(id) ON DELETE CASCADE
                 );
 
+                CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+                CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id);
+                CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at);
                 CREATE INDEX IF NOT EXISTS idx_studies_patient_id ON studies(patient_id);
                 CREATE INDEX IF NOT EXISTS idx_studies_patient_date ON studies(patient_id, study_date);
                 CREATE INDEX IF NOT EXISTS idx_study_scans_study_id ON study_scans(study_id);
                 """
+            )
+            self._delete_expired_sessions(conn)
+            self._ensure_default_admin_user(conn)
+
+    def authenticate_user(self, username: str, password: str) -> dict[str, Any] | None:
+        normalized_username = username.strip()
+        if not normalized_username or not password:
+            return None
+
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT id, username, password_hash, password_salt, created_at
+                FROM users
+                WHERE username = ?
+                """,
+                (normalized_username,),
+            ).fetchone()
+
+            if row is None:
+                return None
+
+            candidate_hash = hash_password(password, row["password_salt"])
+            if candidate_hash != row["password_hash"]:
+                return None
+
+            return self._user_row_to_dict(row)
+
+    def create_session(self, *, user_id: int, token: str, expires_at: str) -> None:
+        created_at = utc_now_iso()
+
+        with self._connect() as conn:
+            self._delete_expired_sessions(conn)
+            conn.execute(
+                """
+                INSERT INTO auth_sessions(user_id, token_hash, created_at, expires_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (user_id, hash_session_token(token), created_at, expires_at),
+            )
+
+    def get_user_by_session_token(self, token: str) -> dict[str, Any] | None:
+        if not token:
+            return None
+
+        with self._connect() as conn:
+            self._delete_expired_sessions(conn)
+            row = conn.execute(
+                """
+                SELECT u.id, u.username, u.created_at
+                FROM auth_sessions s
+                INNER JOIN users u ON u.id = s.user_id
+                WHERE s.token_hash = ? AND s.expires_at > ?
+                LIMIT 1
+                """,
+                (hash_session_token(token), utc_now_iso()),
+            ).fetchone()
+            return self._user_row_to_dict(row) if row else None
+
+    def delete_session(self, token: str) -> None:
+        if not token:
+            return
+
+        with self._connect() as conn:
+            conn.execute(
+                "DELETE FROM auth_sessions WHERE token_hash = ?",
+                (hash_session_token(token),),
             )
 
     def list_patients(self) -> list[dict[str, Any]]:
@@ -255,6 +358,13 @@ class AppRepository:
             "latest_study_date": row["latest_study_date"],
         }
 
+    def _user_row_to_dict(self, row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "id": int(row["id"]),
+            "username": row["username"],
+            "created_at": row["created_at"],
+        }
+
     def _study_summary_row_to_dict(self, row: sqlite3.Row) -> dict[str, Any]:
         return {
             "id": int(row["id"]),
@@ -317,7 +427,7 @@ class AppRepository:
                 {
                     "id": int(scan_row["id"]),
                     "filename": scan_row["filename"],
-                    "image_url": f"/storage/{scan_row['image_path']}",
+                    "image_url": f"/media/{scan_row['image_path']}",
                     "detections": json.loads(scan_row["detections_json"]),
                     "created_at": scan_row["created_at"],
                     "sort_order": int(scan_row["sort_order"]),
@@ -325,3 +435,31 @@ class AppRepository:
                 for scan_row in scan_rows
             ],
         }
+
+    def _delete_expired_sessions(self, conn: sqlite3.Connection) -> None:
+        conn.execute(
+            "DELETE FROM auth_sessions WHERE expires_at <= ?",
+            (utc_now_iso(),),
+        )
+
+    def _ensure_default_admin_user(self, conn: sqlite3.Connection) -> None:
+        existing_user = conn.execute(
+            "SELECT 1 FROM users WHERE username = ?",
+            ("admin",),
+        ).fetchone()
+        if existing_user is not None:
+            return
+
+        password_salt = secrets.token_hex(16)
+        conn.execute(
+            """
+            INSERT INTO users(username, password_hash, password_salt, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                "admin",
+                hash_password("admin", password_salt),
+                password_salt,
+                utc_now_iso(),
+            ),
+        )
